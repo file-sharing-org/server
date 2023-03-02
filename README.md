@@ -4,4 +4,5 @@
 4) run: php artisan key:generate.
 5) run: php artisan migrate
 6) run: php artisan jwt:secret
-7) start server: php artisan serve
+7) create storage/app folder
+8) start server: php artisan serve
