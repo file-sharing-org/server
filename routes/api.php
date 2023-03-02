@@ -25,4 +25,5 @@ Route::controller(AuthController::class)->group(function () {
 
 Route::controller(FileController::class)->group(function () {
    Route::post('upload-file', 'uploadFile');
+   Route::get('files', 'downloadFile');
 });
