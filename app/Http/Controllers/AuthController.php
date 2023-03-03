@@ -58,6 +58,8 @@ class AuthController extends Controller
         ]);
 
         $path = storage_path() . '/app/' . $user->name;
+        $out = new \Symfony\Component\Console\Output\ConsoleOutput();
+        $out->writeln($path);
         File::makeDirectory($path);
 
         $token = Auth::login($user);
