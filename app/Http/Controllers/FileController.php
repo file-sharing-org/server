@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use function PHPUnit\Framework\name;
 
 class FileController extends Controller
 {
@@ -33,6 +35,7 @@ class FileController extends Controller
             ], 401);
         }
     }
+
     public function createFolder(Request $request): JsonResponse
     {
         if ($request->has('folder')) {
@@ -40,6 +43,7 @@ class FileController extends Controller
             $user = Auth::user();
             $path = storage_path() . '/app/' . $user->name . '/' . $pathFolder;
             File::makeDirectory($path);
+
             return response()->json([
                 'status' => 'success'
             ]);
@@ -50,6 +54,31 @@ class FileController extends Controller
                     'status' => 'error',
                     'message' => 'Folder wasnt passed'
                 ], 401);
+        }
+    }
+    public function openFolder(Request $request): JsonResponse
+    {
+        if ($request->has('folder')) {
+            $pathFolder = $request->query('folder');
+            $user = Auth::user();
+            $path = storage_path() . '/app/' . $user->name . '/' . $pathFolder;
+            $path = $user->name . '/' . $pathFolder;
+
+            $files = Storage::files($path);
+            $directories = Storage::directories($path);
+
+            return response()->json([
+                'status' => 'success',
+                'files' => $files,
+                'directories' => $directories
+            ]);
+        }
+        else
+        {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Folder wasnt passed'
+            ], 401);
         }
     }
 }
