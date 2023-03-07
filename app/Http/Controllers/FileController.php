@@ -11,7 +11,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
-use function PHPUnit\Framework\name;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FileController extends Controller
 {
@@ -31,7 +31,27 @@ class FileController extends Controller
         } else {
             return response()->json([
                 'status' => 'error',
-                'message' => 'File wasnt passed'
+                'message' => "File wasn't passed"
+            ], 401);
+        }
+    }
+
+    public function downloadFile(Request $request): BinaryFileResponse|JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+        $path = storage_path() . '/app/' . $user->name . '/' . $request->query('path');
+        if (file_exists($path)) {
+            return response()->download($path);
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File not found'
             ], 401);
         }
     }
