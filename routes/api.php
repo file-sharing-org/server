@@ -4,7 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -24,5 +24,8 @@ Route::controller(AuthController::class)->group(function () {
 });
 
 Route::controller(FileController::class)->group(function () {
-   Route::post('upload-file', 'uploadFile');
+    Route::post('upload-file', 'uploadFile');
+    Route::post('create-folder', 'createFolder');
+    Route::post('open-folder', 'openFolder');
 });
+
