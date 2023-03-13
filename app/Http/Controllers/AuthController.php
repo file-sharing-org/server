@@ -60,7 +60,7 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        event(new Registered($user));
+//        event(new Registered($user));
 
         $path = storage_path() . '/app/' . $user->name;
         $out = new \Symfony\Component\Console\Output\ConsoleOutput();

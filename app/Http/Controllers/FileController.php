@@ -22,7 +22,8 @@ class FileController extends Controller
         if ($request->hasFile('file')) {
             $user = Auth::user();
             $file = $request->file('file');
-            $path = $user->name;
+
+            $path = $user->name . '/' . $request->folder;
             $file->store($path);
 
             return response()->json([
