@@ -7,10 +7,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
 {
@@ -22,8 +21,11 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'name' => 'required|string',
-            'password' => 'required|string'
+            'name' => 'required|string|max:255',
+            /**
+             * TODO CHANGE MIN IN PRODUCTION TO 6
+             */
+            'password' => 'required|string|min:1',
         ]);
 
         $credentials = $request->only('name', 'password');
@@ -38,21 +40,37 @@ class AuthController extends Controller
         $user = Auth::user();
         return response()->json([
             'status' => 'success',
+            'message' => 'You have been logged in',
             'user' => $user,
-            'authorisation' => [
-                'token' => $token,
-                'type' => 'bearer'
-            ]
+            'token' => $token,
         ]);
     }
 
-    public function register(Request $request){
-        $request->validate([
+    public function register(Request $request) {
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-            'password_confirmation' => 'required|string|min:6'
+            'email' => 'required|string|email|max:255',
+            /**
+             * TODO CHANGE MIN IN PRODUCTION TO 6
+             */
+            'password' => 'required|string|min:1|confirmed',
+            'password_confirmation' => 'required|string|min:1'
         ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'validation error',
+                'errors' => $validator->messages(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $oldUser = User::where('name', $request->name)->first();
+        if ($oldUser != null) {
+            return response()->json([
+                'status' => 'warning',
+                'message' => 'User with username: ' . $request->name . ' already exists',
+            ], Response::HTTP_NOT_ACCEPTABLE);
+        }
 
         $user = User::create([
             'name' => $request->name,
@@ -60,23 +78,13 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-//        event(new Registered($user));
-
-        $path = storage_path() . '/app/' . $user->name;
-        $out = new \Symfony\Component\Console\Output\ConsoleOutput();
-        $out->writeln($path);
-        File::makeDirectory($path);
-
         $token = Auth::login($user);
         return response()->json([
             'status' => 'success',
             'message' => 'User created successfully',
             'user' => $user,
-            'authorisation' => [
-                'token' => $token,
-                'type' => 'bearer',
-            ]
-        ]);
+            'token' => $token,
+        ], Response::HTTP_CREATED);
     }
 
     public function logout()
