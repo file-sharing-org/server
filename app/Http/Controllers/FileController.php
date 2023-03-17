@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Carbon\Carbon;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 
 class FileController extends Controller
 {
@@ -58,9 +60,69 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function copyFileFolder(Request $request): JsonResponse
+    public function copyFolder(Request $request): JsonResponse
     {
+        if ($request->has('folder')) {
+            $user = Auth::user();
+            $groups = DB::table('groups_users')
+                ->join('groups', 'groups_users.group_id', '=', 'groups.id')
+                ->select('groups.name')
+                ->where('user_id','=',$user->id)
+                ->get();
 
+            $pathFolder =  storage_path() . '/app/root/' . $request->query('folder');
+            $content = file_get_contents($pathFolder .'.json');
+            $folderConfig = json_decode($content);
+
+            if (!in_array($user->name, $folderConfig->move->users)) {
+                $check = FALSE;
+                foreach($folderConfig->move->groups as $group) {
+                    if ($groups->contains('name',$group)) {
+                    $check = TRUE;
+                    break;
+                    }
+                }
+                if(!$check) {
+                    return response()->json([
+                        'status' => 'No access for copying',
+                    ]);
+                }
+            }
+
+            $newPathFolder = storage_path() . '/app/root/' . $request->query('path');
+            $content = file_get_contents($newPathFolder .'.json');
+            $folderConfig = json_decode($content);
+
+            if (!in_array($user->name, $folderConfig->look->users)) {
+                $check = FALSE;
+                foreach ($folderConfig->look->groups as $group) {
+                    if ($groups->contains('name', $group)) {
+                        $check = TRUE;
+                        break;
+                    }
+                }
+                if(!$check) {
+                    return response()->json([
+                        'status' => 'No access to open'
+                    ]);
+                }
+            }
+
+            File::copyDirectory( $pathFolder, $newPathFolder. '/' . basename($pathFolder));
+            File::copy( $pathFolder . '.json', $newPathFolder. '/' . basename($pathFolder) . '.json');
+
+            return response()->json([
+                'status' => 'success'
+            ]);
+
+        }
+        else
+        {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Folder wasnt passed'
+            ], 401);
+        }
     }
     public function createFolder(Request $request): JsonResponse
     {

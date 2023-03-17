@@ -27,6 +27,8 @@ Route::controller(FileController::class)->group(function () {
     Route::post('upload-file', 'uploadFile');
     Route::post('create-folder', 'createFolder');
     Route::post('open-folder', 'openFolder');
+    Route::post('copy-folder', 'copyFolder');
+
     Route::get('files', 'downloadFile');
 });
 
