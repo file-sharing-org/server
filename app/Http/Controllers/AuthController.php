@@ -20,13 +20,20 @@ class AuthController extends Controller
 
     public function login(Request $request): JsonResponse
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             /**
              * TODO CHANGE MIN IN PRODUCTION TO 6
              */
-            'password' => 'required|string|min:1',
+            'password' => 'required|string|min:1'
         ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'validation error',
+                'errors' => $validator->messages(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
 
         $credentials = $request->only('name', 'password');
         $token = Auth::attempt($credentials);
@@ -34,7 +41,7 @@ class AuthController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized'
-            ], 401);
+            ], Response::HTTP_UNAUTHORIZED);
         }
 
         $user = Auth::user();
@@ -43,10 +50,11 @@ class AuthController extends Controller
             'message' => 'You have been logged in',
             'user' => $user,
             'token' => $token,
-        ]);
+        ], Response::HTTP_OK);
     }
 
-    public function register(Request $request) {
+    public function register(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255',
