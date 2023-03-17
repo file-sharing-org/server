@@ -15,14 +15,17 @@ class GroupSeeder extends Seeder
     {
         $group1 = new Group();
         $group1->name = 'group1';
+        $group1->creator = 'seeder';
         $group1->save();
 
         $group2 = new Group();
         $group2->name = 'group2';
+        $group2->creator = 'seeder';
         $group2->save();
 
         $group3 = new Group();
         $group3->name = 'group3';
+        $group3->creator = 'seeder';
         $group3->save();
     }
 }
