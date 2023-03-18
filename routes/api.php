@@ -32,6 +32,9 @@ Route::controller(FileController::class)->group(function () {
     Route::post('copy-file', 'copyFile');
     Route::post('rebase-file', 'rebaseFile');
     Route::post('rename-folder', 'renameFolder');
+    Route::post('rename-file', 'renameFile');
+    Route::post('delete-file', 'deleteFile');
+    Route::post('delete-folder', 'deleteFolder');
 
     Route::get('files', 'downloadFile');
 });

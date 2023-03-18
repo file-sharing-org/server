@@ -234,7 +234,6 @@ class FileController extends Controller
         {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Folder wasnt passed'
             ], 401);
         }
     }
@@ -356,7 +355,110 @@ class FileController extends Controller
             ], 401);
         }
     }
+    public function renameFile(Request $request): JsonResponse
+    {
+        if ($request->has('file')) {
 
+            $pathFile = $request->query('file');
+            $newName = $request->query('name');
+
+
+            $pathRoot = storage_path() . '/app/root/' . str_replace(basename($pathFile), '', $pathFile);
+            $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
+            if (substr("$pathRoot", -1) == '/')
+            {
+                $pathRoot = substr($pathRoot, 0, -1);
+            }
+            if (self::checkRights($request,$pathFileStorage,'edit')) {
+                if ($pathRoot == '') {
+                    $nameFile = self::fileConflictResolution(basename($pathRoot), $newName);
+                }
+                else{
+                    $nameFile = self::fileConflictResolution(basename($pathRoot),$pathRoot . '/' . $newName);
+                }
+
+                $nameFile = storage_path() . '/app/root/' . $nameFile;
+                $pathNewFileStorage = str_replace(basename($pathFile), '', $pathFileStorage) . basename($nameFile);
+                File::move($pathFileStorage, $pathNewFileStorage);
+                File::move($pathFileStorage . '.json', $pathNewFileStorage . '.json');
+                return response()->json([
+                    'status' => 'success'
+                ]);
+            }
+            else
+            {
+                return response()->json([
+                    'status' => 'Not enough rights',
+                    'message' => 'File not found'
+                ]);
+            }
+        }
+        else
+        {
+            return response()->json([
+                'status' => 'error',
+            ], 401);
+        }
+    }
+    public function deleteFolder(Request $request): JsonResponse
+    {
+        if ($request->has('folder')) {
+
+            $pathFolder = $request->query('folder');
+            $pathFolderStorage =  storage_path() . '/app/root/' . $pathFolder;
+            if (self::checkRights($request,$pathFolderStorage,'edit')) {
+
+                File::deleteDirectory($pathFolderStorage);
+                File::delete($pathFolderStorage . '.json');
+
+                return response()->json([
+                    'status' => 'success'
+                ]);
+            }
+            else
+            {
+                return response()->json([
+                    'status' => 'Not enough rights',
+                    'message' => 'File not found'
+                ]);
+            }
+        }
+        else
+        {
+            return response()->json([
+                'status' => 'error',
+            ], 401);
+        }
+    }
+    public function deleteFile(Request $request): JsonResponse
+    {
+        if ($request->has('file')) {
+            $pathFile = $request->query('file');
+            $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
+            if (self::checkRights($request,$pathFileStorage,'edit')) {
+
+                File::delete($pathFileStorage);
+                File::delete($pathFileStorage . '.json');
+
+                return response()->json([
+                    'status' => 'success'
+                ]);
+            }
+            else
+            {
+                return response()->json([
+                    'status' => 'Not enough rights',
+                    'message' => 'File not found'
+                ]);
+            }
+        }
+        else
+        {
+            return response()->json([
+                'status' => 'error',
+            ], 401);
+        }
+    }
     public function createFolder(Request $request): JsonResponse
     {
         if ($request->has('folder')) {
