@@ -26,7 +26,6 @@ Route::controller(AuthController::class)->group(function () {
 Route::controller(FileController::class)->group(function () {
     Route::post('upload-file', 'uploadFile');
     Route::post('create-folder', 'createFolder');
-    Route::post('open-folder', 'openFolder');
     Route::post('copy-folder', 'copyFolder');
     Route::post('rebase-folder', 'rebaseFolder');
     Route::post('copy-file', 'copyFile');
@@ -37,5 +36,6 @@ Route::controller(FileController::class)->group(function () {
     Route::post('delete-folder', 'deleteFolder');
 
     Route::get('files', 'downloadFile');
+    Route::get('open-folder', 'openFolder');
 });
 

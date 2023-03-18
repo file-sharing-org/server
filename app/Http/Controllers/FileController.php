@@ -49,7 +49,7 @@ class FileController extends Controller
             ],
             "file_extensions" => []
         ];
-        file_put_contents($pathCreate . '.json', json_encode($template));
+        file_put_contents($pathCreate . '.conf', json_encode($template));
     }
     public function fileConflictResolution($path,$fileOriginalName)
     {
@@ -128,7 +128,7 @@ class FileController extends Controller
         }
     }
 
-    public function checkRights(Request $request,$path,$flag)
+    public function checkRights($path,$flag)
     {
         $user = Auth::user();
         $groups = DB::table('groups_users')
@@ -137,43 +137,48 @@ class FileController extends Controller
             ->where('user_id','=',$user->id)
             ->get();
 
-        $content = file_get_contents($path .'.json');
+        $content = file_get_contents($path .'.conf');
         $folderConfig = json_decode($content);
 
-        if (!in_array($user->name, $folderConfig->move->users)) {
-            $check = FALSE;
-            switch($flag){
-                case 'move':
+        switch($flag){
+            case 'move':
+                if (!in_array($user->name, $folderConfig->move->users)) {
                     foreach ($folderConfig->move->groups as $group) {
                         if ($groups->contains('name', $group)) {
-                            $check = TRUE;
+                            return TRUE;
                             break;
                         }
                     }
-                    break;
-                case 'edit':
+                    return FALSE;
+                }
+                break;
+            case 'edit':
+                if (!in_array($user->name, $folderConfig->edit->users)) {
                     foreach ($folderConfig->edit->groups as $group) {
                         if ($groups->contains('name', $group)) {
-                            $check = TRUE;
+                            return TRUE;
                             break;
                         }
                     }
-                    break;
-                case 'look':
+                    return FALSE;
+                }
+                break;
+            case 'look':
+                if (!in_array($user->name, $folderConfig->look->users)) {
                     foreach ($folderConfig->look->groups as $group) {
                         if ($groups->contains('name', $group)) {
-                            $check = TRUE;
+                            return TRUE;
                             break;
                         }
                     }
-                    break;
-            }
-            if(!$check) {
-                return FALSE;
-            }
+                    return FALSE;
+                }
+                break;
         }
+
         return TRUE;
     }
+
     public function rebaseFile(Request $request): JsonResponse
     {
         if ($request->has('file')) {
@@ -181,11 +186,11 @@ class FileController extends Controller
             $pathFile =  storage_path() . '/app/root/' . $request->query('file');
             $newPathFolder = storage_path() . '/app/root/' . $request->query('path');
 
-            if (self::checkRights($request,$pathFile,'move')) {
+            if (self::checkRights($pathFile,'move')) {
 
                 $nameFile = basename(self::fileConflictResolution(basename($newPathFolder),basename($pathFile)));
                 File::move($pathFile, $newPathFolder . '/' . $nameFile);
-                File::move($pathFile . '.json', $newPathFolder . '/' . $nameFile . '.json');
+                File::move($pathFile . '.conf', $newPathFolder . '/' . $nameFile . '.conf');
 
                 return response()->json([
                     'status' => 'success'
@@ -213,11 +218,11 @@ class FileController extends Controller
             $pathFile =  storage_path() . '/app/root/' . $request->query('file');
             $newPathFolder = storage_path() . '/app/root/' . $request->query('path');
 
-            if (self::checkRights($request,$pathFile,'move')) {
+            if (self::checkRights($pathFile,'move')) {
 
                 $nameFile = basename(self::fileConflictResolution(basename($newPathFolder),basename($pathFile)));
                 File::copy($pathFile, $newPathFolder . '/' . $nameFile);
-                File::copy($pathFile . '.json', $newPathFolder . '/' . $nameFile . '.json');
+                File::copy($pathFile . '.conf', $newPathFolder . '/' . $nameFile . '.conf');
 
                 return response()->json([
                     'status' => 'success'
@@ -245,7 +250,7 @@ class FileController extends Controller
             $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
             $newPathFolderStorage = storage_path() . '/app/root/' . $newPath;
 
-            if (self::checkRights($request,$pathFolderStorage,'move')) {
+            if (self::checkRights($pathFolderStorage,'move')) {
                 if ($newPath == '') {
                     $nameFolder = self::folderConflictResolution($newPath, basename($folder));
                 }
@@ -253,7 +258,7 @@ class FileController extends Controller
                     $nameFolder = self::folderConflictResolution($newPath, $newPath . '/' . basename($folder));
                 }
                 File::moveDirectory($pathFolderStorage, $newPathFolderStorage . '/' . basename($nameFolder));
-                File::move($pathFolderStorage . '.json', $newPathFolderStorage . '/' . basename($nameFolder) . '.json');
+                File::move($pathFolderStorage . '.conf', $newPathFolderStorage . '/' . basename($nameFolder) . '.conf');
 
                 return response()->json([
                     'status' => 'success'
@@ -282,7 +287,7 @@ class FileController extends Controller
             $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
             $newPathFolderStorage = storage_path() . '/app/root/' . $newPath;
 
-            if (self::checkRights($request,$pathFolderStorage,'move')) {
+            if (self::checkRights($pathFolderStorage,'move')) {
                 if ($newPath == '') {
                     $nameFolder = self::folderConflictResolution($newPath, basename($folder));
                 }
@@ -290,7 +295,7 @@ class FileController extends Controller
                     $nameFolder = self::folderConflictResolution($newPath, $newPath . '/' . basename($folder));
                 }
                 File::copyDirectory($pathFolderStorage, $newPathFolderStorage . '/' . basename($nameFolder));
-                File::copy($pathFolderStorage . '.json', $newPathFolderStorage . '/' . basename($nameFolder) . '.json');
+                File::copy($pathFolderStorage . '.conf', $newPathFolderStorage . '/' . basename($nameFolder) . '.conf');
 
                 return response()->json([
                     'status' => 'success'
@@ -324,7 +329,7 @@ class FileController extends Controller
             {
                 $pathRoot = substr($pathRoot, 0, -1);
             }
-            if (self::checkRights($request,$pathFolderStorage,'edit')) {
+            if (self::checkRights($pathFolderStorage,'edit')) {
                 if ($pathRoot == '') {
                     $nameFolder = self::folderConflictResolution($pathRoot, $newName);
                 }
@@ -335,7 +340,7 @@ class FileController extends Controller
                 //$nameFolder = storage_path() . '/app/root/' . $nameFolder;
                 $pathNewFolderStorage = str_replace(basename($folder), '', $pathFolderStorage) . basename($nameFolder);
                 File::moveDirectory($pathFolderStorage, $pathNewFolderStorage);
-                File::move($pathFolderStorage . '.json', $pathNewFolderStorage . '.json');
+                File::move($pathFolderStorage . '.conf', $pathNewFolderStorage . '.conf');
                 return response()->json([
                     'status' => 'success'
                 ]);
@@ -369,7 +374,7 @@ class FileController extends Controller
             {
                 $pathRoot = substr($pathRoot, 0, -1);
             }
-            if (self::checkRights($request,$pathFileStorage,'edit')) {
+            if (self::checkRights($pathFileStorage,'edit')) {
                 if ($pathRoot == '') {
                     $nameFile = self::fileConflictResolution(basename($pathRoot), $newName);
                 }
@@ -380,7 +385,7 @@ class FileController extends Controller
                 $nameFile = storage_path() . '/app/root/' . $nameFile;
                 $pathNewFileStorage = str_replace(basename($pathFile), '', $pathFileStorage) . basename($nameFile);
                 File::move($pathFileStorage, $pathNewFileStorage);
-                File::move($pathFileStorage . '.json', $pathNewFileStorage . '.json');
+                File::move($pathFileStorage . '.conf', $pathNewFileStorage . '.conf');
                 return response()->json([
                     'status' => 'success'
                 ]);
@@ -406,10 +411,10 @@ class FileController extends Controller
 
             $pathFolder = $request->query('folder');
             $pathFolderStorage =  storage_path() . '/app/root/' . $pathFolder;
-            if (self::checkRights($request,$pathFolderStorage,'edit')) {
+            if (self::checkRights($pathFolderStorage,'edit')) {
 
                 File::deleteDirectory($pathFolderStorage);
-                File::delete($pathFolderStorage . '.json');
+                File::delete($pathFolderStorage . '.conf');
 
                 return response()->json([
                     'status' => 'success'
@@ -438,7 +443,7 @@ class FileController extends Controller
             if (self::checkRights($request,$pathFileStorage,'edit')) {
 
                 File::delete($pathFileStorage);
-                File::delete($pathFileStorage . '.json');
+                File::delete($pathFileStorage . '.conf');
 
                 return response()->json([
                     'status' => 'success'
@@ -500,10 +505,31 @@ class FileController extends Controller
             $files = Storage::files($path);
             $directories = Storage::directories($path);
 
+            foreach ($directories as $key => $dir)
+            {
+                $pathFolderStorage =  storage_path() . '/app/root/' . $dir;
+                if (!self::checkRights($pathFolderStorage,'look')) {
+                    unset($directories[$key]);
+                }
+            }
+            foreach ($files as $key => $file)
+            {
+                $extension = pathinfo($file, PATHINFO_EXTENSION);
+                if ($extension == 'conf'){
+                    unset($files[$key]);
+                }
+                else{
+                    $pathFileStorage =  storage_path() . '/app/root/' . $file;
+                    if (!self::checkRights($pathFileStorage,'look')) {
+                        unset($files[$key]);
+                    }
+                }
+            }
+
             return response()->json([
                 'status' => 'success',
-                'files' => $files,
-                'directories' => $directories
+                'files' => array_values($files),
+                'directories' => array_values($directories)
             ]);
         }
         else
