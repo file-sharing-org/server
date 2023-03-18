@@ -49,12 +49,12 @@ class FileController extends Controller
             ],
             "file_extensions" => []
         ];
+
         file_put_contents($pathCreate . '.conf', json_encode($template));
     }
-    public function fileConflictResolution($path,$fileOriginalName)
+    public function fileConflictResolution($fileOriginalName,$path = '')
     {
-        if ($path == 'root') {
-            $path = '';
+        if ($path == '') {
             $filename = pathinfo($fileOriginalName, PATHINFO_FILENAME);
         }
         else {
@@ -91,7 +91,12 @@ class FileController extends Controller
             $fileOriginalName = $request->file('file')->getClientOriginalName();
 
             $path = $request->folder;
-            $path = self::fileConflictResolution($path,$fileOriginalName);
+            $path = self::fileConflictResolution($fileOriginalName,$path);
+            if (substr($path, 0,1) == '/')
+            {
+                $path = substr($path, 1);
+            }
+
             $file->storeAs('', $path, 'local');
             $path = storage_path() . '/app/root/' . $path;
 
@@ -187,8 +192,10 @@ class FileController extends Controller
             $newPathFolder = storage_path() . '/app/root/' . $request->query('path');
 
             if (self::checkRights($pathFile,'move')) {
-
-                $nameFile = basename(self::fileConflictResolution(basename($newPathFolder),basename($pathFile)));
+                if (basename($newPathFolder) == 'root')
+                    $nameFile = basename(self::fileConflictResolution(basename($pathFile)));
+                else
+                    $nameFile = basename(self::fileConflictResolution(basename($pathFile),basename($newPathFolder)));
                 File::move($pathFile, $newPathFolder . '/' . $nameFile);
                 File::move($pathFile . '.conf', $newPathFolder . '/' . $nameFile . '.conf');
 
@@ -219,8 +226,10 @@ class FileController extends Controller
             $newPathFolder = storage_path() . '/app/root/' . $request->query('path');
 
             if (self::checkRights($pathFile,'move')) {
-
-                $nameFile = basename(self::fileConflictResolution(basename($newPathFolder),basename($pathFile)));
+                if (basename($newPathFolder) == 'root')
+                    $nameFile = basename(self::fileConflictResolution(basename($pathFile)));
+                else
+                    $nameFile = basename(self::fileConflictResolution(basename($pathFile),basename($newPathFolder)));
                 File::copy($pathFile, $newPathFolder . '/' . $nameFile);
                 File::copy($pathFile . '.conf', $newPathFolder . '/' . $nameFile . '.conf');
 
@@ -367,19 +376,20 @@ class FileController extends Controller
             $pathFile = $request->query('file');
             $newName = $request->query('name');
 
-
-            $pathRoot = storage_path() . '/app/root/' . str_replace(basename($pathFile), '', $pathFile);
+            $pathRoot = str_replace(basename($pathFile), '', $pathFile);
             $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
+
             if (substr("$pathRoot", -1) == '/')
             {
                 $pathRoot = substr($pathRoot, 0, -1);
             }
+
             if (self::checkRights($pathFileStorage,'edit')) {
                 if ($pathRoot == '') {
-                    $nameFile = self::fileConflictResolution(basename($pathRoot), $newName);
+                    $nameFile = self::fileConflictResolution($newName, basename($pathRoot));
                 }
                 else{
-                    $nameFile = self::fileConflictResolution(basename($pathRoot),$pathRoot . '/' . $newName);
+                    $nameFile = self::fileConflictResolution($pathRoot . '/' . $newName,basename($pathRoot));
                 }
 
                 $nameFile = storage_path() . '/app/root/' . $nameFile;
