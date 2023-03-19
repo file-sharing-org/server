@@ -13,19 +13,14 @@ class GroupSeeder extends Seeder
      */
     public function run(): void
     {
-        $group1 = new Group();
-        $group1->name = 'group1';
-        $group1->creator = 'seeder';
-        $group1->save();
+        $everyone = new Group();
+        $everyone->name = 'everyone';
+        $everyone->creator = 'seeder';
+        $everyone->save();
 
-        $group2 = new Group();
-        $group2->name = 'group2';
-        $group2->creator = 'seeder';
-        $group2->save();
-
-        $group3 = new Group();
-        $group3->name = 'group3';
-        $group3->creator = 'seeder';
-        $group3->save();
+        $admins = new Group();
+        $admins->name = 'admins';
+        $admins->creator = 'seeder';
+        $admins->save();
     }
 }

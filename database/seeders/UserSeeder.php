@@ -14,9 +14,8 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $group1 = Group::where('name', 'group1')->first();
-        $group2 = Group::where('name', 'group2')->first();
-        $group3 = Group::where('name', 'group3')->first();
+        $everyone = Group::where('name', 'everyone')->first();
+        $admins = Group::where('name', 'admins')->first();
 
         $admin = new User();
         $admin->is_admin = true;
@@ -62,13 +61,15 @@ class UserSeeder extends Seeder
         $user5->password = Hash::make('user5');
         $user5->save();
 
-        $user1->groups()->attach($group1);
-        $user5->groups()->attach($group1);
+        $admin->groups()->attach($admins);
+        $moderator->groups()->attach($admins);
 
-        $user1->groups()->attach($group2);
-
-        $user2->groups()->attach($group3);
-        $user3->groups()->attach($group3);
-        $user4->groups()->attach($group3);
+        $admin->groups()->attach($everyone);
+        $moderator->groups()->attach($everyone);
+        $user1->groups()->attach($everyone);
+        $user2->groups()->attach($everyone);
+        $user3->groups()->attach($everyone);
+        $user4->groups()->attach($everyone);
+        $user5->groups()->attach($everyone);
     }
 }
