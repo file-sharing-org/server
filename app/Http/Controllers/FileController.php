@@ -36,7 +36,7 @@ class FileController extends Controller
             "creation_date" => $currentTime,
             "creator" => $user->name,
             "look" => [
-                "groups" => [],
+                "groups" => ["everyone"],
                 "users" => $users,
             ],
             "edit" => [
