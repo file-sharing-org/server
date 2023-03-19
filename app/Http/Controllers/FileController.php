@@ -25,27 +25,29 @@ class FileController extends Controller
     {
         $user = Auth::user();
         $currentTime = Carbon::now();
+        /*
         $users = DB::table('users')
             ->where('is_admin','=', 1)
             ->orWhere('is_moderator','=', 1)
-            ->orWhere('name', $user->name)
+            ->where('name', $user->name)
             ->pluck('name');
+        */
         $template = [
             "file_type" => $fileType,
             "file_name" => basename($path),
             "creation_date" => $currentTime,
             "creator" => $user->name,
             "look" => [
-                "groups" => ["everyone"],
-                "users" => $users,
+                "groups" => ["everyone","admins"],
+                "users" => $user->name,
             ],
             "edit" => [
-                "groups" => [],
-                "users" => $users,
+                "groups" => ["admins"],
+                "users" => $user->name,
             ],
             "move" => [
-                "groups" => [],
-                "users" => $users,
+                "groups" => ["admins"],
+                "users" => $user->name,
             ],
             "file_extensions" => []
         ];
