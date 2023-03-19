@@ -122,7 +122,7 @@ class FileController extends Controller
                 'message' => 'Unauthorized'
             ], 401);
         }
-        $path = storage_path() . '/app/' . $user->name . '/' . $request->query('path');
+        $path = storage_path() . '/app/root/' . $request->query('path');
         if (file_exists($path)) {
             return response()->download($path);
         } else {
