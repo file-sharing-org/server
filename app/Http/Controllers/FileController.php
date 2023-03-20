@@ -24,6 +24,9 @@ class FileController extends Controller
 
     public function createConfig($path,$pathCreate,$fileType)
     {
+//        $everyoneGroupId = 1;
+//        $adminsGroupId = 2;
+
         $user = Auth::user();
         $currentTime = Carbon::now();
         /*
@@ -39,7 +42,7 @@ class FileController extends Controller
             "creation_date" => $currentTime,
             "creator" => $user->name,
             "look" => [
-                "groups" => ["everyone","admins"],
+                "groups" => ["everyone", "admins"],
                 "users" => [$user->name],
             ],
             "edit" => [
@@ -98,6 +101,25 @@ class FileController extends Controller
             if (substr($path, 0,1) == '/')
             {
                 $path = substr($path, 1);
+            }
+
+            $tokens = explode('/', $path);
+            $parentFolder = null;
+            for ($i = 0; $i < count($tokens) - 1; $i++) {
+                $parentFolder = $parentFolder . $tokens[$i].'/';
+            }
+            $parentFolder = rtrim($parentFolder, '/');
+            $configPath = storage_path() . '/app/root/' . $parentFolder;
+            $content = file_get_contents($configPath . '.conf');
+            $pathInfo = pathinfo($path);
+            $fileExt = $pathInfo['extension'];
+            $folderConfig = json_decode($content);
+
+            if (in_array($fileExt, $folderConfig->file_extensions)) {
+                return response()->json([
+                    'status' => 'warning',
+                    'message' => $fileExt . " files can't be uploaded to the directory",
+                ], Response::HTTP_BAD_REQUEST);
             }
 
             $file->storeAs('', $path, 'local');
@@ -481,7 +503,7 @@ class FileController extends Controller
     {
         if ($request->has('folder')) {
 
-            $pathFolder = $request->query('folder');
+            $pathFolder = $request->folder;
             $pathRoot = str_replace(basename($pathFolder), '', $pathFolder);
 
             if ($pathRoot == '') {
