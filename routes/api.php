@@ -40,6 +40,11 @@ Route::controller(FileController::class)->group(function () {
 
     Route::get('files', 'downloadFile');
     Route::get('open-folder', 'openFolder');
+
+    Route::post('permission-delete-users', 'permissionDeleteUsers');
+    Route::post('permission-delete-groups', 'permissionDeleteGroups');
+    Route::post('permission-add-users', 'permissionAddUsers');
+    Route::post('permission-add-groups', 'permissionAddGroups');
 });
 
 Route::controller(GroupController::class)->group(function () {

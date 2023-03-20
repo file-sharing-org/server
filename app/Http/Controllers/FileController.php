@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Carbon\Carbon;
 use Illuminate\Filesystem\Filesystem;
+use Symfony\Component\HttpFoundation\Response;
 use function Nette\Utils\isEmpty;
 
 class FileController extends Controller
@@ -39,15 +40,15 @@ class FileController extends Controller
             "creator" => $user->name,
             "look" => [
                 "groups" => ["everyone","admins"],
-                "users" => $user->name,
+                "users" => [$user->name],
             ],
             "edit" => [
                 "groups" => ["admins"],
-                "users" => $user->name,
+                "users" => [$user->name],
             ],
             "move" => [
                 "groups" => ["admins"],
-                "users" => $user->name,
+                "users" => [$user->name],
             ],
             "file_extensions" => []
         ];
@@ -452,7 +453,7 @@ class FileController extends Controller
         if ($request->has('file')) {
             $pathFile = $request->query('file');
             $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
-            if (self::checkRights($request,$pathFileStorage,'edit')) {
+            if (self::checkRights($pathFileStorage,'edit')) {
 
                 File::delete($pathFileStorage);
                 File::delete($pathFileStorage . '.conf');
@@ -551,5 +552,217 @@ class FileController extends Controller
                 'message' => 'Folder wasnt passed'
             ], 401);
         }
+    }
+
+    /**
+     * ALL FUNCTIONS BELOW EXPECTS,
+     * 1 - LOGGED IN USER == FILE_CREATOR, USER IS ADMIN OR MODERATOR
+     * 2 - AND FILE_CREATOR CAN'T CHOOSE ADMIN OR MODERATORS FOR DELETING
+     */
+
+    public function permissionDeleteUsers(Request $request)
+    {
+        $path = $request->path;
+        $permission = $request->permission;
+        $users = $request->u;
+
+        if ($permission != 'look' && $permission != 'edit' && $permission != 'move') {
+            return response()->json([
+                'message' => 'Permission should be look, edit or move'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $pathFileStorage = storage_path() . '/app/root/' . $path;
+
+        $user = Auth::user();
+        if ($user == null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $json = file_get_contents($pathFileStorage . '.conf');
+        unlink($pathFileStorage . '.conf');
+        $config = json_decode($json);
+        switch ($permission) {
+            case 'look': {
+                foreach ($config->look->users as $i => $user) {
+                    if (in_array($user, $users)) {
+                        unset($config->look->users[$i]);
+                    }
+                }
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            }
+            case 'move': {
+                foreach ($config->move->users as $i => $user) {
+                    if (in_array($user, $users)) {
+                        unset($config->move->users[$i]);
+                    }
+                }
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            }
+            case 'edit': {
+                foreach ($config->edit->users as $i => $user) {
+                    if (in_array($user, $users)) {
+                        unset($config->edit->users[$i]);
+                    }
+                }
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            }
+        }
+        return response()->json([
+            'status' => 'success'
+        ]);
+    }
+
+    public function permissionDeleteGroups(Request $request)
+    {
+        $path = $request->path;
+        $permission = $request->permission;
+        $groups = $request->g;
+
+        if ($permission != 'look' && $permission != 'edit' && $permission != 'move') {
+            return response()->json([
+                'message' => 'Permission should be look, edit or move'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $pathFileStorage = storage_path() . '/app/root/' . $path;
+
+        $user = Auth::user();
+        if ($user == null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $json = file_get_contents($pathFileStorage . '.conf');
+        unlink($pathFileStorage . '.conf');
+        $config = json_decode($json);
+        switch ($permission) {
+            case 'look': {
+                foreach ($config->look->groups as $i => $group) {
+                    if (in_array($group, $groups)) {
+                        unset($config->look->groups[$i]);
+                    }
+                }
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            }
+            case 'move': {
+                foreach ($config->move->groups as $i => $group) {
+                    if (in_array($group, $groups)) {
+                        unset($config->move->groups[$i]);
+                    }
+                }
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            }
+            case 'edit': {
+                foreach ($config->edit->groups as $i => $group) {
+                    if (in_array($group, $groups)) {
+                        unset($config->edit->groups[$i]);
+                    }
+                }
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            }
+        }
+        return response()->json([
+            'status' => 'success'
+        ]);
+    }
+
+    public function permissionAddUsers(Request $request)
+    {
+        $path = $request->path;
+        $permission = $request->permission;
+        $users = $request->u;
+
+        if ($permission != 'look' && $permission != 'edit' && $permission != 'move') {
+            return response()->json([
+                'message' => 'Permission should be look, edit or move'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $pathFileStorage = storage_path() . '/app/root/' . $path;
+
+        $user = Auth::user();
+        if ($user == null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $json = file_get_contents($pathFileStorage . '.conf');
+        unlink($pathFileStorage . '.conf');
+        $config = json_decode($json);
+        switch ($permission) {
+            case 'look':
+                $config->look->users = array_merge($config->look->users, $users);
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            case 'edit':
+                $config->edit->users = array_merge($config->edit->users, $users);
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            case 'move':
+                $config->move->users = array_merge($config->move->users, $users);
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+        }
+        return response()->json([
+            'status' => 'success'
+        ]);
+    }
+
+    public function permissionAddGroups(Request $request)
+    {
+        $path = $request->path;
+        $permission = $request->permission;
+        $groups = $request->g;
+
+        if ($permission != 'look' && $permission != 'edit' && $permission != 'move') {
+            return response()->json([
+                'message' => 'Permission should be look, edit or move'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $pathFileStorage = storage_path() . '/app/root/' . $path;
+
+        $user = Auth::user();
+        if ($user == null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $json = file_get_contents($pathFileStorage . '.conf');
+        unlink($pathFileStorage . '.conf');
+        $config = json_decode($json);
+        switch ($permission) {
+            case 'look':
+                $config->look->groups = array_merge($config->look->groups, $groups);
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            case 'edit':
+                $config->edit->groups = array_merge($config->edit->groups, $groups);
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+            case 'move':
+                $config->move->groups = array_merge($config->move->groups, $groups);
+                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                break;
+        }
+        return response()->json([
+            'status' => 'success'
+        ]);
     }
 }
