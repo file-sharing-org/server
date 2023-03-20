@@ -24,34 +24,25 @@ class FileController extends Controller
 
     public function createConfig($path,$pathCreate,$fileType)
     {
-//        $everyoneGroupId = 1;
-//        $adminsGroupId = 2;
 
         $user = Auth::user();
         $currentTime = Carbon::now();
-        /*
-        $users = DB::table('users')
-            ->where('is_admin','=', 1)
-            ->orWhere('is_moderator','=', 1)
-            ->where('name', $user->name)
-            ->pluck('name');
-        */
         $template = [
             "file_type" => $fileType,
             "file_name" => basename($path),
             "creation_date" => $currentTime,
-            "creator" => $user->name,
+            "creator" => $user->id,
             "look" => [
-                "groups" => ["everyone", "admins"],
-                "users" => [$user->name],
+                "groups" => ["1", "2"],
+                "users" => [$user->id],
             ],
             "edit" => [
-                "groups" => ["admins"],
-                "users" => [$user->name],
+                "groups" => ["2"],
+                "users" => [$user->id],
             ],
             "move" => [
-                "groups" => ["admins"],
-                "users" => [$user->name],
+                "groups" => ["2"],
+                "users" => [$user->id],
             ],
             "file_extensions" => []
         ];
@@ -102,26 +93,26 @@ class FileController extends Controller
             {
                 $path = substr($path, 1);
             }
-
             $tokens = explode('/', $path);
             $parentFolder = null;
             for ($i = 0; $i < count($tokens) - 1; $i++) {
                 $parentFolder = $parentFolder . $tokens[$i].'/';
             }
-            $parentFolder = rtrim($parentFolder, '/');
-            $configPath = storage_path() . '/app/root/' . $parentFolder;
-            $content = file_get_contents($configPath . '.conf');
-            $pathInfo = pathinfo($path);
-            $fileExt = $pathInfo['extension'];
-            $folderConfig = json_decode($content);
+            if ($parentFolder != '') {
+                $parentFolder = rtrim($parentFolder, '/');
+                $configPath = storage_path() . '/app/root/' . $parentFolder;
+                $content = file_get_contents($configPath . '.conf');
+                $pathInfo = pathinfo($path);
+                $fileExt = $pathInfo['extension'];
+                $folderConfig = json_decode($content);
 
-            if (in_array($fileExt, $folderConfig->file_extensions)) {
-                return response()->json([
-                    'status' => 'warning',
-                    'message' => $fileExt . " files can't be uploaded to the directory",
-                ], Response::HTTP_BAD_REQUEST);
+                if (in_array($fileExt, $folderConfig->file_extensions)) {
+                    return response()->json([
+                        'status' => 'warning',
+                        'message' => $fileExt . " files can't be uploaded to the directory",
+                    ], Response::HTTP_BAD_REQUEST);
+                }
             }
-
             $file->storeAs('', $path, 'local');
             $path = storage_path() . '/app/root/' . $path;
 
@@ -169,7 +160,7 @@ class FileController extends Controller
         }
         $groups = DB::table('groups_users')
             ->join('groups', 'groups_users.group_id', '=', 'groups.id')
-            ->select('groups.name')
+            ->select('groups.id')
             ->where('user_id','=',$user->id)
             ->get();
 
@@ -178,9 +169,9 @@ class FileController extends Controller
 
         switch($flag){
             case 'move':
-                if (!in_array($user->name, $folderConfig->move->users)) {
+                if (!in_array($user->id, $folderConfig->move->users)) {
                     foreach ($folderConfig->move->groups as $group) {
-                        if ($groups->contains('name', $group)) {
+                        if ($groups->contains('id', $group)) {
                             return TRUE;
                             break;
                         }
@@ -189,9 +180,9 @@ class FileController extends Controller
                 }
                 break;
             case 'edit':
-                if (!in_array($user->name, $folderConfig->edit->users)) {
+                if (!in_array($user->id, $folderConfig->edit->users)) {
                     foreach ($folderConfig->edit->groups as $group) {
-                        if ($groups->contains('name', $group)) {
+                        if ($groups->contains('id', $group)) {
                             return TRUE;
                             break;
                         }
@@ -200,9 +191,9 @@ class FileController extends Controller
                 }
                 break;
             case 'look':
-                if (!in_array($user->name, $folderConfig->look->users)) {
+                if (!in_array($user->id, $folderConfig->look->users)) {
                     foreach ($folderConfig->look->groups as $group) {
-                        if ($groups->contains('name', $group)) {
+                        if ($groups->contains('id', $group)) {
                             return TRUE;
                             break;
                         }
@@ -219,8 +210,8 @@ class FileController extends Controller
     {
         if ($request->has('file')) {
 
-            $pathFile =  storage_path() . '/app/root/' . $request->query('file');
-            $newPathFolder = storage_path() . '/app/root/' . $request->query('path');
+            $pathFile =  storage_path() . '/app/root/' . $request->file;
+            $newPathFolder = storage_path() . '/app/root/' . $request->path;
 
             if (self::checkRights($pathFile,'move')) {
                 if (basename($newPathFolder) == 'root')
@@ -253,8 +244,8 @@ class FileController extends Controller
     {
         if ($request->has('file')) {
 
-            $pathFile =  storage_path() . '/app/root/' . $request->query('file');
-            $newPathFolder = storage_path() . '/app/root/' . $request->query('path');
+            $pathFile =  storage_path() . '/app/root/' . $request->file;
+            $newPathFolder = storage_path() . '/app/root/' . $request->path;
 
             if (self::checkRights($pathFile,'move')) {
                 if (basename($newPathFolder) == 'root')
@@ -285,8 +276,8 @@ class FileController extends Controller
     public function rebaseFolder(Request $request): JsonResponse
     {
         if ($request->has('folder')) {
-            $folder = $request->query('folder');
-            $newPath = $request->query('path');
+            $folder = $request->folder;
+            $newPath = $request->path;
             $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
             $newPathFolderStorage = storage_path() . '/app/root/' . $newPath;
 
@@ -322,8 +313,8 @@ class FileController extends Controller
     public function copyFolder(Request $request): JsonResponse
     {
         if ($request->has('folder')) {
-            $folder = $request->query('folder');
-            $newPath = $request->query('path');
+            $folder = $request->folder;
+            $newPath = $request->path;
             $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
             $newPathFolderStorage = storage_path() . '/app/root/' . $newPath;
 
@@ -360,8 +351,8 @@ class FileController extends Controller
     {
         if ($request->has('folder')) {
 
-            $folder = $request->query('folder');
-            $newName = $request->query('name');
+            $folder = $request->folder;
+            $newName = $request->name;
 
             $pathRoot = str_replace(basename($folder), '', $folder);
             $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
@@ -404,8 +395,8 @@ class FileController extends Controller
     {
         if ($request->has('file')) {
 
-            $pathFile = $request->query('file');
-            $newName = $request->query('name');
+            $pathFile = $request->file;
+            $newName = $request->name;
 
             $pathRoot = str_replace(basename($pathFile), '', $pathFile);
             $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
@@ -450,7 +441,7 @@ class FileController extends Controller
     {
         if ($request->has('folder')) {
 
-            $pathFolder = $request->query('folder');
+            $pathFolder = $request->folder;
             $pathFolderStorage =  storage_path() . '/app/root/' . $pathFolder;
             if (self::checkRights($pathFolderStorage,'edit')) {
 
@@ -479,7 +470,7 @@ class FileController extends Controller
     public function deleteFile(Request $request): JsonResponse
     {
         if ($request->has('file')) {
-            $pathFile = $request->query('file');
+            $pathFile = $request->file;
             $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
             if (self::checkRights($pathFileStorage,'edit')) {
 
@@ -540,7 +531,7 @@ class FileController extends Controller
     public function openFolder(Request $request): JsonResponse
     {
         if ($request->has('folder')) {
-            $pathFolder = $request->query('folder');
+            $pathFolder = $request->folder;
             $path = $pathFolder;
 
             $files = Storage::files($path);
