@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Group;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -55,6 +56,12 @@ class UserController extends Controller
             'password' => Hash::make($request->password),
             'is_moderator' => true,
         ]);
+        /**
+         * each admin has default everyone, admins group
+         */
+        $user->groups()->attach(1);
+        $user->groups()->attach(2);
+        $user->save();
 
         return response()->json([
             'status' => 'success',

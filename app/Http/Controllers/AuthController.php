@@ -85,6 +85,11 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+        /**
+         * each user has default everyone group
+         */
+        $user->groups()->attach(1);
+        $user->save();
 
         $token = Auth::login($user);
         return response()->json([
