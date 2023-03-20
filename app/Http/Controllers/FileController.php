@@ -33,15 +33,15 @@ class FileController extends Controller
             "creation_date" => $currentTime,
             "creator" => $user->id,
             "look" => [
-                "groups" => ["1", "2"],
+                "groups" => [1, 2],
                 "users" => [$user->id],
             ],
             "edit" => [
-                "groups" => ["2"],
+                "groups" => [2],
                 "users" => [$user->id],
             ],
             "move" => [
-                "groups" => ["2"],
+                "groups" => [2],
                 "users" => [$user->id],
             ],
             "file_extensions" => []
@@ -611,6 +611,7 @@ class FileController extends Controller
                         unset($config->look->users[$i]);
                     }
                 }
+                $config->look->users = array_values($config->look->users);
                 file_put_contents($pathFileStorage . '.conf', json_encode($config));
                 break;
             }
@@ -620,6 +621,7 @@ class FileController extends Controller
                         unset($config->move->users[$i]);
                     }
                 }
+                $config->move->users = array_values($config->move->users);
                 file_put_contents($pathFileStorage . '.conf', json_encode($config));
                 break;
             }
@@ -629,6 +631,7 @@ class FileController extends Controller
                         unset($config->edit->users[$i]);
                     }
                 }
+                $config->edit->users = array_values($config->edit->users);
                 file_put_contents($pathFileStorage . '.conf', json_encode($config));
                 break;
             }
@@ -670,6 +673,7 @@ class FileController extends Controller
                         unset($config->look->groups[$i]);
                     }
                 }
+                $config->look->groups = array_values($config->look->groups);
                 file_put_contents($pathFileStorage . '.conf', json_encode($config));
                 break;
             }
@@ -679,6 +683,7 @@ class FileController extends Controller
                         unset($config->move->groups[$i]);
                     }
                 }
+                $config->move->groups = array_values($config->move->groups);
                 file_put_contents($pathFileStorage . '.conf', json_encode($config));
                 break;
             }
@@ -688,6 +693,7 @@ class FileController extends Controller
                         unset($config->edit->groups[$i]);
                     }
                 }
+                $config->edit->groups = array_values($config->edit->groups);
                 file_put_contents($pathFileStorage . '.conf', json_encode($config));
                 break;
             }
@@ -826,6 +832,7 @@ class FileController extends Controller
                     unset($config->file_extensions[$i]);
                 }
             }
+            $config->file_extensions = array_values($config->file_extensions);
             file_put_contents($pathFolderStorage . '.conf', json_encode($config));
 
             return response()->json([
