@@ -647,20 +647,14 @@ class FileController extends Controller
         $permission = $request->permission;
         $groups = $request->g;
 
-        foreach ($groups as $group) {
-            $group_id = DB::table('groups')
-                ->where('name', '=', $group)
-                ->select('groups.id')
-                ->get();
-            if ($group_id->contains('id', 2))
-            {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'You cannot delete admins',
-                ]);
-            }
+        if (in_array('admins',$groups))
+        {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You cannot delete admins',
+            ]);
         }
-        
+
         if ($permission != 'look' && $permission != 'edit' && $permission != 'move') {
             return response()->json([
                 'message' => 'Permission should be look, edit or move'
