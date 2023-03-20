@@ -45,6 +45,9 @@ Route::controller(FileController::class)->group(function () {
     Route::post('permission-delete-groups', 'permissionDeleteGroups');
     Route::post('permission-add-users', 'permissionAddUsers');
     Route::post('permission-add-groups', 'permissionAddGroups');
+
+    Route::post('ext-add', 'extensionsAdd');
+    Route::post('ext-delete', 'extensionsDelete');
 });
 
 Route::controller(GroupController::class)->group(function () {

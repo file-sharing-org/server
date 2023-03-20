@@ -161,6 +161,12 @@ class FileController extends Controller
     public function checkRights($path,$flag)
     {
         $user = Auth::user();
+        if ($user == null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
         $groups = DB::table('groups_users')
             ->join('groups', 'groups_users.group_id', '=', 'groups.id')
             ->select('groups.name')
@@ -786,5 +792,59 @@ class FileController extends Controller
         return response()->json([
             'status' => 'success'
         ]);
+    }
+
+    public function extensionsAdd(Request $request)
+    {
+        $dir = $request->folder;
+        $extensions = $request->ext;
+
+        $pathFolderStorage =  storage_path() . '/app/root/' . $dir;
+        if (self::checkRights($pathFolderStorage, 'edit')) {
+            $json = file_get_contents($pathFolderStorage . '.conf');
+            unlink($pathFolderStorage . '.conf');
+            $config = json_decode($json);
+
+            $config->file_extensions = array_merge($config->file_extensions, $extensions);
+            file_put_contents($pathFolderStorage . '.conf', json_encode($config));
+
+            return response()->json([
+                'status' => 'success',
+            ], Response::HTTP_OK);
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Forbidden',
+            ], Response::HTTP_FORBIDDEN);
+        }
+    }
+
+    public function extensionsDelete(Request $request)
+    {
+        $dir = $request->folder;
+        $extensions = $request->ext;
+
+        $pathFolderStorage =  storage_path() . '/app/root/' . $dir;
+        if (self::checkRights($pathFolderStorage, 'edit')) {
+            $json = file_get_contents($pathFolderStorage . '.conf');
+            unlink($pathFolderStorage . '.conf');
+            $config = json_decode($json);
+
+            foreach ($config->file_extensions as $i => $extension) {
+                if (in_array($extension, $extensions)) {
+                    unset($config->file_extensions[$i]);
+                }
+            }
+            file_put_contents($pathFolderStorage . '.conf', json_encode($config));
+
+            return response()->json([
+                'status' => 'success',
+            ], Response::HTTP_OK);
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Forbidden',
+            ], Response::HTTP_FORBIDDEN);
+        }
     }
 }
