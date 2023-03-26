@@ -156,7 +156,7 @@ class FileController extends Controller
                     return true;
                 } else {
                     foreach ($groups as $group) {
-                        if (in_array($group, $file->look_groups)) {
+                        if (in_array($group->id, $file->look_groups)) {
                             return true;
                         }
                     }
@@ -167,7 +167,7 @@ class FileController extends Controller
                     return true;
                 } else {
                     foreach ($groups as $group) {
-                        if (in_array($group, $file->edit_groups)) {
+                        if (in_array($group->id, $file->edit_groups)) {
                             return true;
                         }
                     }
@@ -178,7 +178,7 @@ class FileController extends Controller
                     return true;
                 } else {
                     foreach ($groups as $group) {
-                        if (in_array($group, $file->move_groups)) {
+                        if (in_array($group->id, $file->move_groups)) {
                             return true;
                         }
                     }
