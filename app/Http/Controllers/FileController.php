@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -22,33 +23,6 @@ class FileController extends Controller
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
-    public function createConfig($path,$pathCreate,$fileType)
-    {
-
-        $user = Auth::user();
-        $currentTime = Carbon::now();
-        $template = [
-            "file_type" => $fileType,
-            "file_name" => basename($path),
-            "creation_date" => $currentTime,
-            "creator" => $user->id,
-            "look" => [
-                "groups" => [1, 2],
-                "users" => [$user->id],
-            ],
-            "edit" => [
-                "groups" => [2],
-                "users" => [$user->id],
-            ],
-            "move" => [
-                "groups" => [2],
-                "users" => [$user->id],
-            ],
-            "file_extensions" => []
-        ];
-
-        file_put_contents($pathCreate . '.conf', json_encode($template));
-    }
     public function fileConflictResolution($fileOriginalName,$path = '')
     {
         if ($path == '') {
@@ -81,18 +55,19 @@ class FileController extends Controller
         }
         return $folderName;
     }
-    public function uploadFile(Request $request): JsonResponse
+    public function uploadFile(Request $request)
     {
         if ($request->hasFile('file')) {
             $file = $request->file('file');
+            $fileSize = $file->getSize();
             $fileOriginalName = $request->file('file')->getClientOriginalName();
-
             $path = $request->folder;
             $path = self::fileConflictResolution($fileOriginalName,$path);
             if (substr($path, 0,1) == '/')
             {
                 $path = substr($path, 1);
             }
+
             $tokens = explode('/', $path);
             $parentFolder = null;
             for ($i = 0; $i < count($tokens) - 1; $i++) {
@@ -113,14 +88,24 @@ class FileController extends Controller
                     ], Response::HTTP_BAD_REQUEST);
                 }
             }
+
             $file->storeAs('', $path, 'local');
-            $path = storage_path() . '/app/root/' . $path;
+            $user = Auth::user();
+            $fileMetadata = new \App\Models\File();
+            $fileMetadata->path = $path;
+            $fileMetadata->file_type = 'file';
+            $fileMetadata->file_size = $fileSize / 1000000;
+            $fileMetadata->file_name = basename($path);
+            $fileMetadata->creator = $user->id;
+            $fileMetadata->look_groups = [1, 2];
+            $fileMetadata->look_users = [$user->id];
+            $fileMetadata->move_groups = [2];
+            $fileMetadata->move_users = [$user->id];
+            $fileMetadata->edit_groups = [2];
+            $fileMetadata->edit_users = [$user->id];
+            $fileMetadata->save();
 
-            self::createConfig(basename($path),$path,"file");
-
-            return response()->json([
-                'status' => 'success'
-            ]);
+            return response('');
 
         } else {
             return response()->json([
@@ -132,7 +117,7 @@ class FileController extends Controller
     public function downloadFile(Request $request): BinaryFileResponse|JsonResponse
     {
         $user = Auth::user();
-        if (!$user) {
+        if ($user == null) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized'
@@ -164,46 +149,44 @@ class FileController extends Controller
             ->where('user_id','=',$user->id)
             ->get();
 
-        $content = file_get_contents($path .'.conf');
-        $folderConfig = json_decode($content);
-
-        switch($flag){
-            case 'move':
-                if (!in_array($user->id, $folderConfig->move->users)) {
-                    foreach ($folderConfig->move->groups as $group) {
-                        if ($groups->contains('id', $group)) {
-                            return TRUE;
-                            break;
+        $file = \App\Models\File::find($path)->first();
+        switch ($flag) {
+            case 'look':
+                if (in_array($user->id, $file->look_users)) {
+                    return true;
+                } else {
+                    foreach ($groups as $group) {
+                        if (in_array($group, $file->look_groups)) {
+                            return true;
                         }
                     }
-                    return FALSE;
                 }
                 break;
             case 'edit':
-                if (!in_array($user->id, $folderConfig->edit->users)) {
-                    foreach ($folderConfig->edit->groups as $group) {
-                        if ($groups->contains('id', $group)) {
-                            return TRUE;
-                            break;
+                if (in_array($user->id, $file->edit_users)) {
+                    return true;
+                } else {
+                    foreach ($groups as $group) {
+                        if (in_array($group, $file->edit_groups)) {
+                            return true;
                         }
                     }
-                    return FALSE;
                 }
                 break;
-            case 'look':
-                if (!in_array($user->id, $folderConfig->look->users)) {
-                    foreach ($folderConfig->look->groups as $group) {
-                        if ($groups->contains('id', $group)) {
-                            return TRUE;
-                            break;
+            case 'move':
+                if (in_array($user->id, $file->move_users)) {
+                    return true;
+                } else {
+                    foreach ($groups as $group) {
+                        if (in_array($group, $file->move_groups)) {
+                            return true;
                         }
                     }
-                    return FALSE;
                 }
                 break;
         }
 
-        return TRUE;
+        return false;
     }
 
     public function rebaseFile(Request $request): JsonResponse
@@ -472,11 +455,11 @@ class FileController extends Controller
         if ($request->has('file')) {
             $pathFile = $request->file;
             $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
-            if (self::checkRights($pathFileStorage,'edit')) {
+            if (self::checkRights($pathFile,'edit')) {
 
                 File::delete($pathFileStorage);
                 File::delete($pathFileStorage . '.conf');
-
+                $file = \App\Models\File::find($pathFile)->first()->delete();
                 return response()->json([
                     'status' => 'success'
                 ]);
