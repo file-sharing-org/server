@@ -33,6 +33,7 @@ class File extends Model
         'move_users' => 'array',
         'edit_groups' => 'array',
         'edit_users' => 'array',
+        'links' => 'array',
         'file_extensions' => 'array',
     ];
 }

@@ -25,7 +25,7 @@ return new class extends Migration
             $table->json('edit_users');
             $table->boolean('deleted')->default(false);
             $table->json('file_extensions')->nullable();
-            $table->string('link')->nullable();
+            $table->json('links')->nullable();
             $table->timestamps();
 
             $table->primary('path');

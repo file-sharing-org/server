@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\GroupController;
+use App\Http\Controllers\LinkController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\CheckPermissions;
 use Illuminate\Http\Request;
@@ -64,5 +65,10 @@ Route::controller(GroupController::class)->group(function () {
 
 Route::controller(UserController::class)->group(function () {
     Route::post('create-moderator', 'createModerator');
+});
+
+Route::controller(LinkController::class)->group(function () {
+    Route::post('create-link', 'createLink');
+    Route::get('i/{link}', 'openLink');
 });
 
