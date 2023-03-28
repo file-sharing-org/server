@@ -5,6 +5,7 @@ use App\Http\Controllers\FileController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\LinkController;
 use App\Http\Controllers\UserController;
+use App\Http\Middleware\CheckAuth;
 use App\Http\Middleware\CheckPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -28,27 +29,29 @@ Route::controller(AuthController::class)->group(function () {
 });
 
 Route::controller(FileController::class)->group(function () {
-    Route::post('upload-file', 'uploadFile');
-    Route::post('create-folder', 'createFolder');
-    Route::post('copy-folder', 'copyFolder');
-    Route::post('rebase-folder', 'rebaseFolder');
-    Route::post('copy-file', 'copyFile');
-    Route::post('rebase-file', 'rebaseFile');
-    Route::post('rename-folder', 'renameFolder');
-    Route::post('rename-file', 'renameFile');
-    Route::post('delete-file', 'deleteFile');
-    Route::post('delete-folder', 'deleteFolder');
+    Route::middleware(CheckAuth::class)->group(function () {
+        Route::post('upload-file', 'uploadFile');
+        Route::post('create-folder', 'createFolder');
+        Route::post('copy-folder', 'copyFolder');
+        Route::post('rebase-folder', 'rebaseFolder');
+        Route::post('copy-file', 'copyFile');
+        Route::post('rebase-file', 'rebaseFile');
+        Route::post('rename-folder', 'renameFolder');
+        Route::post('rename-file', 'renameFile');
+        Route::post('delete-file', 'deleteFile');
+        Route::post('delete-folder', 'deleteFolder');
 
-    Route::get('files', 'downloadFile');
-    Route::get('open-folder', 'openFolder');
+        Route::get('files', 'downloadFile');
+        Route::get('open-folder', 'openFolder');
 
-    Route::post('permission-delete-users', 'permissionDeleteUsers');
-    Route::post('permission-delete-groups', 'permissionDeleteGroups');
-    Route::post('permission-add-users', 'permissionAddUsers');
-    Route::post('permission-add-groups', 'permissionAddGroups');
+        Route::post('permission-delete-users', 'permissionDeleteUsers');
+        Route::post('permission-delete-groups', 'permissionDeleteGroups');
+        Route::post('permission-add-users', 'permissionAddUsers');
+        Route::post('permission-add-groups', 'permissionAddGroups');
 
-    Route::post('ext-add', 'extensionsAdd');
-    Route::post('ext-delete', 'extensionsDelete');
+        Route::post('ext-add', 'extensionsAdd');
+        Route::post('ext-delete', 'extensionsDelete');
+    });
 });
 
 Route::controller(GroupController::class)->group(function () {

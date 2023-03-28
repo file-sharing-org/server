@@ -479,7 +479,7 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function createFolder(Request $request): JsonResponse
+    public function createFolder(Request $request)
     {
         if ($request->has('folder')) {
 
@@ -496,11 +496,23 @@ class FileController extends Controller
             $path = storage_path() . '/app/root/' . $nameFolder;
 
             File::makeDirectory($path);
-            self::createConfig($path,$path,"dir");
-            //return response()->json($template);
-            return response()->json([
-                'status' => 'success'
-            ]);
+
+            $user = Auth::user();
+            $fileMetadata = new \App\Models\File();
+            $fileMetadata->path = $pathFolder;
+            $fileMetadata->file_type = 'dir';
+            $fileMetadata->file_size = 0;
+            $fileMetadata->file_name = basename($path);
+            $fileMetadata->creator = $user->id;
+            $fileMetadata->look_groups = [1, 2];
+            $fileMetadata->look_users = [$user->id];
+            $fileMetadata->move_groups = [2];
+            $fileMetadata->move_users = [$user->id];
+            $fileMetadata->edit_groups = [2];
+            $fileMetadata->edit_users = [$user->id];
+            $fileMetadata->save();
+
+            return response('');
 
         }
         else

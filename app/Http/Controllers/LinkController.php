@@ -25,11 +25,18 @@ class LinkController extends Controller
         $path = $request->path;
 
         $user = Auth::user();
+        $file = \App\Models\File::where('path', $path)->first();
         if ($user == null) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized',
             ], Response::HTTP_UNAUTHORIZED);
+        }
+        if (!$user->is_admin && !$user->is_moderator && $file->creator != $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Forbidden',
+            ], Response::HTTP_FORBIDDEN);
         }
 
         while(1) {
@@ -49,13 +56,6 @@ class LinkController extends Controller
             'insert into links (link, path, created_at, updated_at) values (?, ?, ?, ?)',
             [$link, $path, new \DateTime(), new \DateTime()]
         );
-        $file = \App\Models\File::where('path', $path)->first();
-        if ($file->links == null) {
-            $file->links = array($link);
-        } else {
-            $file->links = array_merge($file->links, [$link]);
-        }
-        $file->save();
 
         return response()->json([
            'url' => "http://127.0.0.1:8000/api/i/{$link}",

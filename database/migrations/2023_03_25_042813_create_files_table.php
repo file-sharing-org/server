@@ -23,9 +23,7 @@ return new class extends Migration
             $table->json('move_users');
             $table->json('edit_groups');
             $table->json('edit_users');
-            $table->boolean('deleted')->default(false);
             $table->json('file_extensions')->nullable();
-            $table->json('links')->nullable();
             $table->timestamps();
 
             $table->primary('path');
