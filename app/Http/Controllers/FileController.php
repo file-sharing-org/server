@@ -22,7 +22,6 @@ use function Nette\Utils\isEmpty;
 class FileController extends Controller
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
-
     public function fileConflictResolution($fileOriginalName,$path = '')
     {
         if ($path == '') {
@@ -91,6 +90,7 @@ class FileController extends Controller
 
             $file->storeAs('', $path, 'local');
             $user = Auth::user();
+
             $fileMetadata = new \App\Models\File();
             $fileMetadata->path = $path;
             $fileMetadata->file_type = 'file';
@@ -189,20 +189,31 @@ class FileController extends Controller
         return false;
     }
 
-    public function rebaseFile(Request $request): JsonResponse
+    public function rebaseFile(Request $request): JsonResponse // *
     {
         if ($request->has('file')) {
 
-            $pathFile =  storage_path() . '/app/root/' . $request->file;
-            $newPathFolder = storage_path() . '/app/root/' . $request->path;
+            $file = $request->file;
+            $path = $request->path;
+            $commonPathFile =  storage_path() . '/app/root/' . $file;
+            $commonNewPathFolder = storage_path() . '/app/root/' . $path;
 
-            if (self::checkRights($pathFile,'move')) {
-                if (basename($newPathFolder) == 'root')
-                    $nameFile = basename(self::fileConflictResolution(basename($pathFile)));
+            if (self::checkRights($file,'move')) {
+                if (basename($commonNewPathFolder) == 'root')
+                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile)));
                 else
-                    $nameFile = basename(self::fileConflictResolution(basename($pathFile),basename($newPathFolder)));
-                File::move($pathFile, $newPathFolder . '/' . $nameFile);
-                File::move($pathFile . '.conf', $newPathFolder . '/' . $nameFile . '.conf');
+                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),basename($commonNewPathFolder)));
+                File::move($commonPathFile, $commonNewPathFolder . '/' . $nameFile);
+
+                if ($path != '') $path = $path . '/' ;
+
+                DB::table('files')
+                    ->where('path', '=', $file)
+                    ->update(['path' => $path . $nameFile]);
+
+                DB::table('links')
+                    ->where('path', '=', $file)
+                    ->update(['path' => $path . $nameFile]);
 
                 return response()->json([
                     'status' => 'success'
@@ -223,20 +234,40 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function copyFile(Request $request): JsonResponse
+    public function copyFile(Request $request): JsonResponse // *
     {
         if ($request->has('file')) {
 
-            $pathFile =  storage_path() . '/app/root/' . $request->file;
-            $newPathFolder = storage_path() . '/app/root/' . $request->path;
+            $file = $request->file;
+            $path = $request->path;
+            $commonPathFile =  storage_path() . '/app/root/' . $file;
+            $commonNewPathFolder = storage_path() . '/app/root/' . $path;
 
-            if (self::checkRights($pathFile,'move')) {
-                if (basename($newPathFolder) == 'root')
-                    $nameFile = basename(self::fileConflictResolution(basename($pathFile)));
+            if (self::checkRights($commonPathFile,'move')) {
+                if (basename($commonNewPathFolder) == 'root')
+                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile)));
                 else
-                    $nameFile = basename(self::fileConflictResolution(basename($pathFile),basename($newPathFolder)));
-                File::copy($pathFile, $newPathFolder . '/' . $nameFile);
-                File::copy($pathFile . '.conf', $newPathFolder . '/' . $nameFile . '.conf');
+                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),basename($commonNewPathFolder)));
+                File::copy($commonPathFile, $commonNewPathFolder . '/' . $nameFile);
+
+                $metaDataFile = DB::table('files')
+                    ->where('path', '=', $file)
+                    ->first();
+
+                if ($path != '') $path = $path . '/' ;
+                $fileMetadata = new \App\Models\File();
+                $fileMetadata->path = $path . $nameFile;
+                $fileMetadata->file_type = 'file';
+                $fileMetadata->file_size = $metaDataFile->file_size;
+                $fileMetadata->file_name = $nameFile;
+                $fileMetadata->creator = $metaDataFile->creator;
+                $fileMetadata->look_groups = json_decode($metaDataFile->look_groups);
+                $fileMetadata->look_users = json_decode($metaDataFile->look_users);
+                $fileMetadata->move_groups = json_decode($metaDataFile->move_groups);
+                $fileMetadata->move_users = json_decode($metaDataFile->move_users);
+                $fileMetadata->edit_groups = json_decode($metaDataFile->edit_groups);
+                $fileMetadata->edit_users = json_decode($metaDataFile->edit_users);
+                $fileMetadata->save();
 
                 return response()->json([
                     'status' => 'success'
@@ -374,7 +405,7 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function renameFile(Request $request): JsonResponse
+    public function renameFile(Request $request): JsonResponse // 1
     {
         if ($request->has('file')) {
 
@@ -450,7 +481,7 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function deleteFile(Request $request): JsonResponse
+    public function deleteFile(Request $request): JsonResponse // 2
     {
         if ($request->has('file')) {
             $pathFile = $request->file;
@@ -479,6 +510,7 @@ class FileController extends Controller
             ], 401);
         }
     }
+
     public function createFolder(Request $request)
     {
         if ($request->has('folder')) {
@@ -513,7 +545,6 @@ class FileController extends Controller
             $fileMetadata->save();
 
             return response('');
-
         }
         else
             {
@@ -523,7 +554,7 @@ class FileController extends Controller
                 ], 401);
         }
     }
-    public function openFolder(Request $request): JsonResponse
+    public function openFolder(Request $request): JsonResponse //
     {
         if ($request->has('folder')) {
             $pathFolder = $request->folder;
