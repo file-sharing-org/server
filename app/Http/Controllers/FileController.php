@@ -66,7 +66,7 @@ class FileController extends Controller
             {
                 $path = substr($path, 1);
             }
-
+/*
             $tokens = explode('/', $path);
             $parentFolder = null;
             for ($i = 0; $i < count($tokens) - 1; $i++) {
@@ -87,6 +87,7 @@ class FileController extends Controller
                     ], Response::HTTP_BAD_REQUEST);
                 }
             }
+*/
 
             $file->storeAs('', $path, 'local');
             $user = Auth::user();
@@ -148,7 +149,6 @@ class FileController extends Controller
             ->select('groups.id')
             ->where('user_id','=',$user->id)
             ->get();
-
         $file = \App\Models\File::find($path)->first();
         switch ($flag) {
             case 'look':
@@ -188,7 +188,6 @@ class FileController extends Controller
 
         return false;
     }
-
     public function rebaseFile(Request $request): JsonResponse // *
     {
         if ($request->has('file')) {
@@ -202,7 +201,7 @@ class FileController extends Controller
                 if (basename($commonNewPathFolder) == 'root')
                     $nameFile = basename(self::fileConflictResolution(basename($commonPathFile)));
                 else
-                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),basename($commonNewPathFolder)));
+                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),$path));
                 File::move($commonPathFile, $commonNewPathFolder . '/' . $nameFile);
 
                 if ($path != '') $path = $path . '/' ;
@@ -243,11 +242,11 @@ class FileController extends Controller
             $commonPathFile =  storage_path() . '/app/root/' . $file;
             $commonNewPathFolder = storage_path() . '/app/root/' . $path;
 
-            if (self::checkRights($commonPathFile,'move')) {
+            if (self::checkRights($file,'move')) {
                 if (basename($commonNewPathFolder) == 'root')
                     $nameFile = basename(self::fileConflictResolution(basename($commonPathFile)));
                 else
-                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),basename($commonNewPathFolder)));
+                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),$path));
                 File::copy($commonPathFile, $commonNewPathFolder . '/' . $nameFile);
 
                 $metaDataFile = DB::table('files')
@@ -405,33 +404,41 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function renameFile(Request $request): JsonResponse // 1
+    public function renameFile(Request $request): JsonResponse // *
     {
         if ($request->has('file')) {
 
-            $pathFile = $request->file;
+
+            $file = $request->file;
             $newName = $request->name;
-
-            $pathRoot = str_replace(basename($pathFile), '', $pathFile);
-            $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
-
-            if (substr("$pathRoot", -1) == '/')
+            $path = str_replace(basename($file), '', $file);
+            $pathFileStorage =  storage_path() . '/app/root/' . $file;
+            if (substr("$path", -1) == '/')
             {
-                $pathRoot = substr($pathRoot, 0, -1);
+                $path = substr($path, 0, -1);
             }
 
-            if (self::checkRights($pathFileStorage,'edit')) {
-                if ($pathRoot == '') {
-                    $nameFile = self::fileConflictResolution($newName, basename($pathRoot));
+            if (self::checkRights($file,'edit')) {
+                if ($path == '') {
+                    $nameFile = self::fileConflictResolution($newName);
                 }
                 else{
-                    $nameFile = self::fileConflictResolution($pathRoot . '/' . $newName,basename($pathRoot));
+                    $nameFile = self::fileConflictResolution($path . '/' . $newName,$path);
                 }
 
                 $nameFile = storage_path() . '/app/root/' . $nameFile;
-                $pathNewFileStorage = str_replace(basename($pathFile), '', $pathFileStorage) . basename($nameFile);
+                $pathNewFileStorage = str_replace(basename($file), '', $pathFileStorage) . basename($nameFile);
                 File::move($pathFileStorage, $pathNewFileStorage);
-                File::move($pathFileStorage . '.conf', $pathNewFileStorage . '.conf');
+
+                if ($path != '') $path = $path . '/' ;
+                DB::table('files')
+                    ->where('path', '=', $file)
+                    ->update(['file_name' => basename($nameFile),'path' => $path . basename($nameFile)]);
+
+                DB::table('links')
+                    ->where('path', '=', $file)
+                    ->update(['path' => $path . basename($nameFile)]);
+
                 return response()->json([
                     'status' => 'success'
                 ]);
@@ -481,16 +488,23 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function deleteFile(Request $request): JsonResponse // 2
+    public function deleteFile(Request $request): JsonResponse // *
     {
         if ($request->has('file')) {
-            $pathFile = $request->file;
-            $pathFileStorage =  storage_path() . '/app/root/' . $pathFile;
-            if (self::checkRights($pathFile,'edit')) {
+            $path= $request->file;
+            $pathFileStorage =  storage_path() . '/app/root/' . $path;
+            if (self::checkRights($path,'edit')) {
 
                 File::delete($pathFileStorage);
-                File::delete($pathFileStorage . '.conf');
-                $file = \App\Models\File::find($pathFile)->first()->delete();
+
+                DB::table('files')
+                    ->where('path', '=', $path)
+                    ->delete();
+
+                DB::table('links')
+                    ->where('path', '=', $path)
+                    ->delete();
+
                 return response()->json([
                     'status' => 'success'
                 ]);
