@@ -293,17 +293,44 @@ class FileController extends Controller
             $folder = $request->folder;
             $newPath = $request->path;
             $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
-            $newPathFolderStorage = storage_path() . '/app/root/' . $newPath;
 
-            if (self::checkRights($pathFolderStorage,'move')) {
+            if (self::checkRights($folder,'move')) {
                 if ($newPath == '') {
                     $nameFolder = self::folderConflictResolution($newPath, basename($folder));
                 }
                 else{
                     $nameFolder = self::folderConflictResolution($newPath, $newPath . '/' . basename($folder));
                 }
-                File::moveDirectory($pathFolderStorage, $newPathFolderStorage . '/' . basename($nameFolder));
-                File::move($pathFolderStorage . '.conf', $newPathFolderStorage . '/' . basename($nameFolder) . '.conf');
+
+                if ($newPath != "") $newPath = $newPath . '/';
+                $files = Storage::allFiles($folder);
+                $directories = Storage::allDirectories($folder);
+                foreach ($files as $file)
+                {
+                    $newFolderPath = $newPath . basename($nameFolder);
+                    $newPathFile = self::str_replace_first($folder,$newFolderPath,$file);
+
+                    DB::table('files')
+                        ->where('path', '=', $file)
+                        ->update(['path' => $newPathFile]);
+
+                    DB::table('links')
+                        ->where('path', '=', $file)
+                        ->update(['path' => $newPathFile]);
+                }
+                foreach ($directories as $dir)
+                {
+                    $newFolderPath = $newPath . basename($nameFolder);
+                    $newPathDir = self::str_replace_first($folder,$newFolderPath,$dir);
+                    DB::table('files')
+                        ->where('path', '=', $dir)
+                        ->update(['path' => $newPathDir]);
+                }
+
+                File::moveDirectory($pathFolderStorage, storage_path() . '/app/root/' . $newPath . basename($nameFolder));
+                DB::table('files')
+                    ->where('path', '=', $folder)
+                    ->update(['path' => $nameFolder]);
 
                 return response()->json([
                     'status' => 'success'
