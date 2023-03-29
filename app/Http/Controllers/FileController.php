@@ -375,11 +375,11 @@ class FileController extends Controller
             $folder = $request->folder;
             $newName = $request->name;
             $pathRoot = str_replace(basename($folder), '', $folder);
-
             if (substr("$pathRoot", -1) == '/')
             {
                 $pathRoot = substr($pathRoot, 0, -1);
             }
+
             if (self::checkRights($folder,'edit')) {
                 if ($pathRoot == '') {
                     $nameFolder = self::folderConflictResolution($pathRoot, $newName);
@@ -504,10 +504,34 @@ class FileController extends Controller
 
             $pathFolder = $request->folder;
             $pathFolderStorage =  storage_path() . '/app/root/' . $pathFolder;
-            if (self::checkRights($pathFolderStorage,'edit')) {
+            if (self::checkRights($pathFolder,'edit')) {
+
+                $files = Storage::allFiles($pathFolder);
+                $directories = Storage::allDirectories($pathFolder);
 
                 File::deleteDirectory($pathFolderStorage);
-                File::delete($pathFolderStorage . '.conf');
+
+                DB::table('files')
+                    ->where('path', '=', $pathFolder)
+                    ->delete();
+
+                foreach ($files as $file)
+                {
+                    DB::table('files')
+                        ->where('path', '=', $file)
+                        ->delete();
+
+                    DB::table('links')
+                        ->where('path', '=', $file)
+                        ->delete();
+                }
+                foreach ($directories as $dir)
+                {
+                    DB::table('files')
+                        ->where('path', '=', $dir)
+                        ->delete();
+                }
+
 
                 return response()->json([
                     'status' => 'success'
