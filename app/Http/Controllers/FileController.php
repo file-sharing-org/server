@@ -45,6 +45,7 @@ class FileController extends Controller
     public function folderConflictResolution($path,$folderName)
     {
         $folders = Storage::directories($path);
+        //echo $folders;
         $index = 1;
         $oldName = $folderName;
         while(in_array($folderName, $folders))
@@ -360,31 +361,70 @@ class FileController extends Controller
             ], 401);
         }
     }
+    function str_replace_first($from, $to, $content) {
+
+        $from = '/'.preg_quote($from, '/').'/';
+
+        return preg_replace($from, $to, $content, 1);
+
+    }
     public function renameFolder(Request $request): JsonResponse
     {
         if ($request->has('folder')) {
 
             $folder = $request->folder;
             $newName = $request->name;
-
             $pathRoot = str_replace(basename($folder), '', $folder);
-            $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
+
             if (substr("$pathRoot", -1) == '/')
             {
                 $pathRoot = substr($pathRoot, 0, -1);
             }
-            if (self::checkRights($pathFolderStorage,'edit')) {
+            if (self::checkRights($folder,'edit')) {
                 if ($pathRoot == '') {
                     $nameFolder = self::folderConflictResolution($pathRoot, $newName);
                 }
                 else{
                     $nameFolder = self::folderConflictResolution($pathRoot,$pathRoot . '/' . $newName);
                 }
-                //return response()->json(['status' => $nameFolder]);
-                //$nameFolder = storage_path() . '/app/root/' . $nameFolder;
+
+                $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
                 $pathNewFolderStorage = str_replace(basename($folder), '', $pathFolderStorage) . basename($nameFolder);
+
+                $files = Storage::allFiles($folder);
+                $directories = Storage::allDirectories($folder);
+                var_dump($files);
+                var_dump($directories);
+
+                foreach ($files as $file)
+                {
+                    $newFolderPath = str_replace(storage_path() . '/app/root/', '', $pathNewFolderStorage);
+                    $newPathFile = self::str_replace_first($folder,$newFolderPath,$file);
+                    DB::table('files')
+                        ->where('path', '=', $file)
+                        ->update(['path' => $newPathFile]);
+
+                    DB::table('links')
+                        ->where('path', '=', $file)
+                        ->update(['path' => $newPathFile]);
+                }
+                foreach ($directories as $dir)
+                {
+                    $newFolderPath = str_replace(storage_path() . '/app/root/', '', $pathNewFolderStorage);
+                    $newPathDir = self::str_replace_first($folder,$newFolderPath,$dir);
+                    DB::table('files')
+                        ->where('path', '=', $dir)
+                        ->update(['path' => $newPathDir]);
+
+                }
+
                 File::moveDirectory($pathFolderStorage, $pathNewFolderStorage);
-                File::move($pathFolderStorage . '.conf', $pathNewFolderStorage . '.conf');
+
+                DB::table('files')
+                    ->where('path', '=', $folder)
+                    ->update(['file_name' => basename($nameFolder),'path' => $nameFolder]);
+
+
                 return response()->json([
                     'status' => 'success'
                 ]);
@@ -528,7 +568,6 @@ class FileController extends Controller
     public function createFolder(Request $request)
     {
         if ($request->has('folder')) {
-
             $pathFolder = $request->folder;
             $pathRoot = str_replace(basename($pathFolder), '', $pathFolder);
 
@@ -538,7 +577,6 @@ class FileController extends Controller
             else{
                 $nameFolder = self::folderConflictResolution($pathRoot,$pathRoot . '/' . basename($pathFolder));
             }
-
             $path = storage_path() . '/app/root/' . $nameFolder;
 
             File::makeDirectory($path);
