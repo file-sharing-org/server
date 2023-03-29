@@ -393,8 +393,6 @@ class FileController extends Controller
 
                 $files = Storage::allFiles($folder);
                 $directories = Storage::allDirectories($folder);
-                var_dump($files);
-                var_dump($directories);
 
                 foreach ($files as $file)
                 {
@@ -588,7 +586,6 @@ class FileController extends Controller
             ], 401);
         }
     }
-
     public function createFolder(Request $request)
     {
         if ($request->has('folder')) {
