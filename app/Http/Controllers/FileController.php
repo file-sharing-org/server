@@ -45,7 +45,7 @@ class FileController extends Controller
     public function folderConflictResolution($path,$folderName)
     {
         $folders = Storage::directories($path);
-        //echo $folders;
+
         $index = 1;
         $oldName = $folderName;
         while(in_array($folderName, $folders))
@@ -569,13 +569,14 @@ class FileController extends Controller
     {
         if ($request->has('folder')) {
             $pathFolder = $request->folder;
-            $pathRoot = str_replace(basename($pathFolder), '', $pathFolder);
+            $p = substr(strrchr($pathFolder, '/'), 1);
+            $pathRoot = substr($pathFolder, 0, - strlen($p));
 
             if ($pathRoot == '') {
                 $nameFolder = self::folderConflictResolution($pathRoot, basename($pathFolder));
             }
             else{
-                $nameFolder = self::folderConflictResolution($pathRoot,$pathRoot . '/' . basename($pathFolder));
+                $nameFolder = self::folderConflictResolution($pathRoot,$pathRoot . basename($pathFolder));
             }
             $path = storage_path() . '/app/root/' . $nameFolder;
 
@@ -583,7 +584,7 @@ class FileController extends Controller
 
             $user = Auth::user();
             $fileMetadata = new \App\Models\File();
-            $fileMetadata->path = $pathFolder;
+            $fileMetadata->path = $nameFolder;
             $fileMetadata->file_type = 'dir';
             $fileMetadata->file_size = 0;
             $fileMetadata->file_name = basename($path);
