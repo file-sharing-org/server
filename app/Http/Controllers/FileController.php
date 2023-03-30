@@ -366,7 +366,6 @@ class FileController extends Controller
                 foreach ($files as $file)
                 {
                     $newPathFile = self::str_replace_first($folder,$newPath . basename($nameFolder),$file);
-                    echo $newPathFile;
                     self::copyMetaData($file,$newPathFile);
 
                 }
@@ -675,22 +674,14 @@ class FileController extends Controller
 
             foreach ($directories as $key => $dir)
             {
-                $pathFolderStorage =  storage_path() . '/app/root/' . $dir;
-                if (!self::checkRights($pathFolderStorage,'look')) {
+                if (!self::checkRights($dir,'look')) {
                     unset($directories[$key]);
                 }
             }
             foreach ($files as $key => $file)
             {
-                $extension = pathinfo($file, PATHINFO_EXTENSION);
-                if ($extension == 'conf'){
+                if (!self::checkRights($file,'look')) {
                     unset($files[$key]);
-                }
-                else{
-                    $pathFileStorage =  storage_path() . '/app/root/' . $file;
-                    if (!self::checkRights($pathFileStorage,'look')) {
-                        unset($files[$key]);
-                    }
                 }
             }
 
