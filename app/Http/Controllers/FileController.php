@@ -459,15 +459,13 @@ class FileController extends Controller
                     $nameFolder = self::folderConflictResolution($pathRoot,$pathRoot . '/' . $newName);
                 }
 
-                $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
-                $pathNewFolderStorage = str_replace(basename($folder), '', $pathFolderStorage) . basename($nameFolder);
-
+                $pathNewFolderStorage = str_replace(basename($folder), '', $this->root . $folder) . basename($nameFolder);
                 $files = Storage::allFiles($folder);
                 $directories = Storage::allDirectories($folder);
 
                 foreach ($files as $file)
                 {
-                    $newFolderPath = str_replace(storage_path() . '/app/root/', '', $pathNewFolderStorage);
+                    $newFolderPath = str_replace($this->root, '', $pathNewFolderStorage);
                     $newPathFile = self::str_replace_first($folder,$newFolderPath,$file);
                     DB::table('files')
                         ->where('path', '=', $file)
@@ -479,7 +477,7 @@ class FileController extends Controller
                 }
                 foreach ($directories as $dir)
                 {
-                    $newFolderPath = str_replace(storage_path() . '/app/root/', '', $pathNewFolderStorage);
+                    $newFolderPath = str_replace($this->root, '', $pathNewFolderStorage);
                     $newPathDir = self::str_replace_first($folder,$newFolderPath,$dir);
                     DB::table('files')
                         ->where('path', '=', $dir)
@@ -487,7 +485,7 @@ class FileController extends Controller
 
                 }
 
-                File::moveDirectory($pathFolderStorage, $pathNewFolderStorage);
+                File::moveDirectory($this->root . $folder, $pathNewFolderStorage);
 
                 DB::table('files')
                     ->where('path', '=', $folder)
@@ -521,7 +519,6 @@ class FileController extends Controller
             $file = $request->file;
             $newName = $request->name;
             $path = str_replace(basename($file), '', $file);
-            $pathFileStorage =  storage_path() . '/app/root/' . $file;
             if (substr("$path", -1) == '/')
             {
                 $path = substr($path, 0, -1);
@@ -535,9 +532,9 @@ class FileController extends Controller
                     $nameFile = self::fileConflictResolution($path . '/' . $newName,$path);
                 }
 
-                $nameFile = storage_path() . '/app/root/' . $nameFile;
-                $pathNewFileStorage = str_replace(basename($file), '', $pathFileStorage) . basename($nameFile);
-                File::move($pathFileStorage, $pathNewFileStorage);
+                $nameFile = $this->root . $nameFile;
+                $pathNewFileStorage = str_replace(basename($file), '', $this->root . $file) . basename($nameFile);
+                File::move($this->root . $file, $pathNewFileStorage);
 
                 if ($path != '') $path = $path . '/' ;
                 DB::table('files')
@@ -572,13 +569,12 @@ class FileController extends Controller
         if ($request->has('folder')) {
 
             $pathFolder = $request->folder;
-            $pathFolderStorage =  storage_path() . '/app/root/' . $pathFolder;
             if (self::checkRights($pathFolder,'edit')) {
 
                 $files = Storage::allFiles($pathFolder);
                 $directories = Storage::allDirectories($pathFolder);
 
-                File::deleteDirectory($pathFolderStorage);
+                File::deleteDirectory($this->root . $pathFolder);
 
                 DB::table('files')
                     ->where('path', '=', $pathFolder)
@@ -625,10 +621,9 @@ class FileController extends Controller
     {
         if ($request->has('file')) {
             $path= $request->file;
-            $pathFileStorage =  storage_path() . '/app/root/' . $path;
             if (self::checkRights($path,'edit')) {
 
-                File::delete($pathFileStorage);
+                File::delete($this->root . $path);
 
                 DB::table('files')
                     ->where('path', '=', $path)
