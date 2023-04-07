@@ -670,8 +670,6 @@ class FileController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $pathFileStorage = storage_path() . '/app/root/' . $path;
-
         $user = Auth::user();
         if ($user == null) {
             return response()->json([
@@ -680,44 +678,39 @@ class FileController extends Controller
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        $json = file_get_contents($pathFileStorage . '.conf');
-        unlink($pathFileStorage . '.conf');
-        $config = json_decode($json);
+        $file = \App\Models\File::where('path', $path)->first();
         switch ($permission) {
-            case 'look': {
-                foreach ($config->look->users as $i => $user) {
+            case 'look':
+                foreach ($file->look_users as $i => $user) {
                     if (in_array($user, $users)) {
-                        unset($config->look->users[$i]);
+                        unset($file->look_users[$i]);
                     }
                 }
-                $config->look->users = array_values($config->look->users);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->look_users = array_values($file->look_users);
+                $file->save();
                 break;
-            }
-            case 'move': {
-                foreach ($config->move->users as $i => $user) {
+            case 'edit':
+                foreach ($file->edit_users as $i => $user) {
                     if (in_array($user, $users)) {
-                        unset($config->move->users[$i]);
+                        unset($file->edit_users[$i]);
                     }
                 }
-                $config->move->users = array_values($config->move->users);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->edit_users = array_values($file->edit_users);
+                $file->save();
                 break;
-            }
-            case 'edit': {
-                foreach ($config->edit->users as $i => $user) {
+            case 'move':
+                var_dump($users);
+                foreach ($file->move_users as $i => $user) {
                     if (in_array($user, $users)) {
-                        unset($config->edit->users[$i]);
+                        unset($file->move_users[$i]);
                     }
                 }
-                $config->edit->users = array_values($config->edit->users);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->move_users = array_values($file->move_users);
+                $file->save();
                 break;
-            }
         }
-        return response()->json([
-            'status' => 'success'
-        ]);
+
+        return response('');
     }
 
     public function permissionDeleteGroups(Request $request)
