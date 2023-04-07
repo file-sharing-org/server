@@ -745,42 +745,39 @@ class FileController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $user = Auth::user();
-        if ($user == null) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized',
-            ], Response::HTTP_UNAUTHORIZED);
-        }
-
         $file = \App\Models\File::where('path', $path)->first();
         switch ($permission) {
             case 'look':
+                $look_users = $file->look_users;
                 foreach ($file->look_users as $i => $user) {
                     if (in_array($user, $users)) {
                         unset($file->look_users[$i]);
                     }
                 }
-                $file->look_users = array_values($file->look_users);
+                $look_users = array_values($look_users);
+                $file->look_users = $look_users;
                 $file->save();
                 break;
             case 'edit':
+                $edit_users = $file->edit_users;
                 foreach ($file->edit_users as $i => $user) {
                     if (in_array($user, $users)) {
-                        unset($file->edit_users[$i]);
+                        unset($edit_users[$i]);
                     }
                 }
-                $file->edit_users = array_values($file->edit_users);
+                $edit_users = array_values($edit_users);
+                $file->edit_users = $edit_users;
                 $file->save();
                 break;
             case 'move':
-                var_dump($users);
+                $move_users = $file->move_users;
                 foreach ($file->move_users as $i => $user) {
                     if (in_array($user, $users)) {
-                        unset($file->move_users[$i]);
+                        unset($move_users[$i]);
                     }
                 }
-                $file->move_users = array_values($file->move_users);
+                $move_users = array_values($move_users);
+                $file->move_users = $move_users;
                 $file->save();
                 break;
         }
@@ -808,54 +805,46 @@ class FileController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $pathFileStorage = storage_path() . '/app/root/' . $path;
-
-        $user = Auth::user();
-        if ($user == null) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized',
-            ], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $json = file_get_contents($pathFileStorage . '.conf');
-        unlink($pathFileStorage . '.conf');
-        $config = json_decode($json);
+        $file = \App\Models\File::where('path', $path)->first();
         switch ($permission) {
             case 'look': {
-                foreach ($config->look->groups as $i => $group) {
+                $look_groups = $file->look_groups;
+                foreach ($file->look_groups as $i => $group) {
                     if (in_array($group, $groups)) {
-                        unset($config->look->groups[$i]);
+                        unset($look_groups[$i]);
                     }
                 }
-                $config->look->groups = array_values($config->look->groups);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $look_groups = array_values($look_groups);
+                $file->look_groups = $look_groups;
+                $file->save();
                 break;
             }
             case 'move': {
-                foreach ($config->move->groups as $i => $group) {
+                $move_groups = $file->move_groups;
+                foreach ($file->move_groups as $i => $group) {
                     if (in_array($group, $groups)) {
-                        unset($config->move->groups[$i]);
+                        unset($move_groups[$i]);
                     }
                 }
-                $config->move->groups = array_values($config->move->groups);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $move_groups = array_values($move_groups);
+                $file->move_groups = $move_groups;
+                $file->save();
                 break;
             }
             case 'edit': {
-                foreach ($config->edit->groups as $i => $group) {
+                $edit_groups = $file->edit_groups;
+                foreach ($file->edit_groups as $i => $group) {
                     if (in_array($group, $groups)) {
-                        unset($config->edit->groups[$i]);
+                        unset($edit_groups[$i]);
                     }
                 }
-                $config->edit->groups = array_values($config->edit->groups);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $edit_groups = array_values($edit_groups);
+                $file->edit_groups = $edit_groups;
+                $file->save();
                 break;
             }
         }
-        return response()->json([
-            'status' => 'success'
-        ]);
+        return response('');
     }
 
     public function permissionAddUsers(Request $request)
@@ -870,36 +859,26 @@ class FileController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $pathFileStorage = storage_path() . '/app/root/' . $path;
-
-        $user = Auth::user();
-        if ($user == null) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized',
-            ], Response::HTTP_UNAUTHORIZED);
+        foreach ($users as $i => $user) {
+            $users[$i] = (int)$user;
         }
 
-        $json = file_get_contents($pathFileStorage . '.conf');
-        unlink($pathFileStorage . '.conf');
-        $config = json_decode($json);
+        $file = \App\Models\File::where('path', $path)->first();
         switch ($permission) {
             case 'look':
-                $config->look->users = array_merge($config->look->users, $users);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->look_users = array_merge($file->look_users, $users);
+                $file->save();
                 break;
             case 'edit':
-                $config->edit->users = array_merge($config->edit->users, $users);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->edit_users = array_merge($file->edit_users, $users);
+                $file->save();
                 break;
             case 'move':
-                $config->move->users = array_merge($config->move->users, $users);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->move_users = array_merge($file->move_users, $users);
+                $file->save();
                 break;
         }
-        return response()->json([
-            'status' => 'success'
-        ]);
+        return response('');
     }
 
     public function permissionAddGroups(Request $request)
@@ -914,36 +893,26 @@ class FileController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $pathFileStorage = storage_path() . '/app/root/' . $path;
-
-        $user = Auth::user();
-        if ($user == null) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized',
-            ], Response::HTTP_UNAUTHORIZED);
+        foreach ($groups as $i => $group) {
+            $groups[$i] = (int)$group;
         }
 
-        $json = file_get_contents($pathFileStorage . '.conf');
-        unlink($pathFileStorage . '.conf');
-        $config = json_decode($json);
+        $file = \App\Models\File::where('path', $path)->first();
         switch ($permission) {
             case 'look':
-                $config->look->groups = array_merge($config->look->groups, $groups);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->look_groups = array_merge($file->look_groups, $groups);
+                $file->save();
                 break;
             case 'edit':
-                $config->edit->groups = array_merge($config->edit->groups, $groups);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->edit_groups = array_merge($file->edit_groups, $groups);
+                $file->save();
                 break;
             case 'move':
-                $config->move->groups = array_merge($config->move->groups, $groups);
-                file_put_contents($pathFileStorage . '.conf', json_encode($config));
+                $file->move_groups = array_merge($file->move_groups, $groups);
+                $file->save();
                 break;
         }
-        return response()->json([
-            'status' => 'success'
-        ]);
+        return response('');
     }
 
     public function extensionsAdd(Request $request)
@@ -951,18 +920,17 @@ class FileController extends Controller
         $dir = $request->folder;
         $extensions = $request->ext;
 
-        $pathFolderStorage =  storage_path() . '/app/root/' . $dir;
-        if (self::checkRights($pathFolderStorage, 'edit')) {
-            $json = file_get_contents($pathFolderStorage . '.conf');
-            unlink($pathFolderStorage . '.conf');
-            $config = json_decode($json);
+        $file = \App\Models\File::where('path', $dir)->first();
+        if (self::checkRights($dir, 'edit')) {
 
-            $config->file_extensions = array_merge($config->file_extensions, $extensions);
-            file_put_contents($pathFolderStorage . '.conf', json_encode($config));
+            if ($file->file_extensions == null) {
+                $file->file_extensions = $extensions;
+            } else {
+                $file->file_extensions = array_merge($file->file_extensions, $extensions);
+            }
+            $file->save();
 
-            return response()->json([
-                'status' => 'success',
-            ], Response::HTTP_OK);
+            return response('');
         } else {
             return response()->json([
                 'status' => 'error',
@@ -976,23 +944,20 @@ class FileController extends Controller
         $dir = $request->folder;
         $extensions = $request->ext;
 
-        $pathFolderStorage =  storage_path() . '/app/root/' . $dir;
-        if (self::checkRights($pathFolderStorage, 'edit')) {
-            $json = file_get_contents($pathFolderStorage . '.conf');
-            unlink($pathFolderStorage . '.conf');
-            $config = json_decode($json);
+        $file = \App\Models\File::where('path', $dir)->first();
+        if (self::checkRights($dir, 'edit')) {
+            $exts = $file->file_extensions;
 
-            foreach ($config->file_extensions as $i => $extension) {
+            foreach ($file->file_extensions as $i => $extension) {
                 if (in_array($extension, $extensions)) {
-                    unset($config->file_extensions[$i]);
+                    unset($exts[$i]);
                 }
             }
-            $config->file_extensions = array_values($config->file_extensions);
-            file_put_contents($pathFolderStorage . '.conf', json_encode($config));
+            $exts = array_values($exts);
+            $file->file_extensions = $exts;
+            $file->save();
 
-            return response()->json([
-                'status' => 'success',
-            ], Response::HTTP_OK);
+            return response('');
         } else {
             return response()->json([
                 'status' => 'error',
