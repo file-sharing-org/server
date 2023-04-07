@@ -22,6 +22,11 @@ use function Nette\Utils\isEmpty;
 class FileController extends Controller
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
+    public $root;
+    public function __construct()
+    {
+        $this->root = storage_path() . '/app/root/';
+    }
     public function fileConflictResolution($fileOriginalName,$path = '')
     {
         if ($path == '') {
@@ -55,6 +60,24 @@ class FileController extends Controller
         }
         return $folderName;
     }
+    public function checkExtensions($path,$ext)
+    {
+        $countTokens = substr_count($path,'/');
+        $parentPath = $path;
+        for ($i = 0; $i < $countTokens + 1; ++$i) {
+            $folderExtensions = DB::table('files')
+                ->where('path','=',$parentPath)
+                ->select('file_extensions')
+                ->first();
+
+            if(!is_null($folderExtensions->file_extensions) && in_array($ext,json_decode($folderExtensions->file_extensions))) {
+                return false;
+            }
+            $folder = substr(strrchr($parentPath, '/'), 1);
+            $parentPath = substr($parentPath, 0, - strlen($folder) - 1);
+        }
+        return true;
+    }
     public function uploadFile(Request $request)
     {
         if ($request->hasFile('file')) {
@@ -62,33 +85,18 @@ class FileController extends Controller
             $fileSize = $file->getSize();
             $fileOriginalName = $request->file('file')->getClientOriginalName();
             $path = $request->folder;
+
+            if (self::checkExtensions($path,pathinfo($fileOriginalName, PATHINFO_EXTENSION)) == false)
+                return response()->json([
+                'status' => 'warning',
+                'message' => pathinfo($fileOriginalName, PATHINFO_EXTENSION) . " files can't be uploaded to the directory",
+            ], Response::HTTP_BAD_REQUEST);
+
             $path = self::fileConflictResolution($fileOriginalName,$path);
             if (substr($path, 0,1) == '/')
             {
                 $path = substr($path, 1);
             }
-/*
-            $tokens = explode('/', $path);
-            $parentFolder = null;
-            for ($i = 0; $i < count($tokens) - 1; $i++) {
-                $parentFolder = $parentFolder . $tokens[$i].'/';
-            }
-            if ($parentFolder != '') {
-                $parentFolder = rtrim($parentFolder, '/');
-                $configPath = storage_path() . '/app/root/' . $parentFolder;
-                $content = file_get_contents($configPath . '.conf');
-                $pathInfo = pathinfo($path);
-                $fileExt = $pathInfo['extension'];
-                $folderConfig = json_decode($content);
-
-                if (in_array($fileExt, $folderConfig->file_extensions)) {
-                    return response()->json([
-                        'status' => 'warning',
-                        'message' => $fileExt . " files can't be uploaded to the directory",
-                    ], Response::HTTP_BAD_REQUEST);
-                }
-            }
-*/
 
             $file->storeAs('', $path, 'local');
             $user = Auth::user();
@@ -125,7 +133,7 @@ class FileController extends Controller
                 'message' => 'Unauthorized'
             ], 401);
         }
-        $path = storage_path() . '/app/root/' . $request->query('path');
+        $path = $this->root . $request->query('path');
         if (file_exists($path)) {
             return response()->download($path);
         } else {
@@ -135,7 +143,6 @@ class FileController extends Controller
             ], 401);
         }
     }
-
     public function checkRights($path,$flag)
     {
         $user = Auth::user();
@@ -145,11 +152,13 @@ class FileController extends Controller
                 'message' => 'Unauthorized',
             ], Response::HTTP_UNAUTHORIZED);
         }
+
         $groups = DB::table('groups_users')
             ->join('groups', 'groups_users.group_id', '=', 'groups.id')
             ->select('groups.id')
             ->where('user_id','=',$user->id)
             ->get();
+
         $file = \App\Models\File::find($path)->first();
         switch ($flag) {
             case 'look':
@@ -189,27 +198,30 @@ class FileController extends Controller
 
         return false;
     }
-    public function rebaseFile(Request $request): JsonResponse // *
+    public function rebaseFile(Request $request): JsonResponse
     {
         if ($request->has('file')) {
-
             $file = $request->file;
             $path = $request->path;
-            $commonPathFile =  storage_path() . '/app/root/' . $file;
-            $commonNewPathFolder = storage_path() . '/app/root/' . $path;
+
+            if (self::checkExtensions($path,pathinfo($file, PATHINFO_EXTENSION)) == false)
+                return response()->json([
+                    'status' => 'warning',
+                    'message' => pathinfo($file, PATHINFO_EXTENSION) . " files can't be uploaded to the directory",
+                ], Response::HTTP_BAD_REQUEST);
 
             if (self::checkRights($file,'move')) {
-                if (basename($commonNewPathFolder) == 'root')
-                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile)));
+                if (basename($this->root . $path) == 'root')
+                    $nameFile = basename(self::fileConflictResolution(basename($file)));
                 else
-                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),$path));
-                File::move($commonPathFile, $commonNewPathFolder . '/' . $nameFile);
+                    $nameFile = basename(self::fileConflictResolution(basename($file),$path));
+                File::move($this->root . $file, $this->root . $path . '/' . $nameFile);
 
                 if ($path != '') $path = $path . '/' ;
 
                 DB::table('files')
                     ->where('path', '=', $file)
-                    ->update(['path' => $path . $nameFile]);
+                    ->update(['file_name' => $nameFile , 'path' => $path . $nameFile]);
 
                 DB::table('links')
                     ->where('path', '=', $file)
@@ -234,41 +246,48 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function copyFile(Request $request): JsonResponse // *
+    public function copyMetaData($file,$path,$name = '')
+    {
+        $metaData = DB::table('files')
+            ->where('path', '=', $file)
+            ->first();
+
+        if ($path != '' && $name != '') $path = $path . '/' ;
+        $path = $path . $name;
+        $copyMetadata = new \App\Models\File();
+        $copyMetadata->path = $path;
+        $copyMetadata->file_type = $metaData->file_type;
+        $copyMetadata->file_size = $metaData->file_size;
+        $copyMetadata->file_name = basename($path);
+        $copyMetadata->creator = $metaData->creator;
+        $copyMetadata->look_groups = json_decode($metaData->look_groups);
+        $copyMetadata->look_users = json_decode($metaData->look_users);
+        $copyMetadata->move_groups = json_decode($metaData->move_groups);
+        $copyMetadata->move_users = json_decode($metaData->move_users);
+        $copyMetadata->edit_groups = json_decode($metaData->edit_groups);
+        $copyMetadata->edit_users = json_decode($metaData->edit_users);
+        $copyMetadata->save();
+    }
+    public function copyFile(Request $request): JsonResponse
     {
         if ($request->has('file')) {
-
             $file = $request->file;
             $path = $request->path;
-            $commonPathFile =  storage_path() . '/app/root/' . $file;
-            $commonNewPathFolder = storage_path() . '/app/root/' . $path;
+
+            if (self::checkExtensions($path,pathinfo($file, PATHINFO_EXTENSION)) == false)
+                return response()->json([
+                    'status' => 'warning',
+                    'message' => pathinfo($file, PATHINFO_EXTENSION) . " files can't be uploaded to the directory",
+                ], Response::HTTP_BAD_REQUEST);
 
             if (self::checkRights($file,'move')) {
-                if (basename($commonNewPathFolder) == 'root')
-                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile)));
+                if (basename($this->root . $path) == 'root')
+                    $nameFile = basename(self::fileConflictResolution(basename($file)));
                 else
-                    $nameFile = basename(self::fileConflictResolution(basename($commonPathFile),$path));
-                File::copy($commonPathFile, $commonNewPathFolder . '/' . $nameFile);
+                    $nameFile = basename(self::fileConflictResolution(basename($file),$path));
 
-                $metaDataFile = DB::table('files')
-                    ->where('path', '=', $file)
-                    ->first();
-
-                if ($path != '') $path = $path . '/' ;
-                $fileMetadata = new \App\Models\File();
-                $fileMetadata->path = $path . $nameFile;
-                $fileMetadata->file_type = 'file';
-                $fileMetadata->file_size = $metaDataFile->file_size;
-                $fileMetadata->file_name = $nameFile;
-                $fileMetadata->creator = $metaDataFile->creator;
-                $fileMetadata->look_groups = json_decode($metaDataFile->look_groups);
-                $fileMetadata->look_users = json_decode($metaDataFile->look_users);
-                $fileMetadata->move_groups = json_decode($metaDataFile->move_groups);
-                $fileMetadata->move_users = json_decode($metaDataFile->move_users);
-                $fileMetadata->edit_groups = json_decode($metaDataFile->edit_groups);
-                $fileMetadata->edit_users = json_decode($metaDataFile->edit_users);
-                $fileMetadata->save();
-
+                File::copy($this->root . $file, $this->root . $path . '/' . $nameFile);
+                self::copyMetaData($file,$path,$nameFile);
                 return response()->json([
                     'status' => 'success'
                 ]);
@@ -291,19 +310,50 @@ class FileController extends Controller
     {
         if ($request->has('folder')) {
             $folder = $request->folder;
-            $newPath = $request->path;
-            $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
-            $newPathFolderStorage = storage_path() . '/app/root/' . $newPath;
-
-            if (self::checkRights($pathFolderStorage,'move')) {
-                if ($newPath == '') {
-                    $nameFolder = self::folderConflictResolution($newPath, basename($folder));
+            $path = $request->path;
+            if (self::checkRights($folder,'move')) {
+                if ($path == '') {
+                    $nameFolder = self::folderConflictResolution($path, basename($folder));
                 }
                 else{
-                    $nameFolder = self::folderConflictResolution($newPath, $newPath . '/' . basename($folder));
+                    $nameFolder = self::folderConflictResolution($path, $path . '/' . basename($folder));
                 }
-                File::moveDirectory($pathFolderStorage, $newPathFolderStorage . '/' . basename($nameFolder));
-                File::move($pathFolderStorage . '.conf', $newPathFolderStorage . '/' . basename($nameFolder) . '.conf');
+                $newPath = $path;
+                if ($newPath != "") $newPath = $newPath . '/';
+                $files = Storage::allFiles($folder);
+                $directories = Storage::allDirectories($folder);
+                foreach ($files as $file)
+                {
+                    if (self::checkExtensions($path,pathinfo($file, PATHINFO_EXTENSION)) == false)
+                        return response()->json([
+                            'status' => 'warning',
+                            'message' => pathinfo($file, PATHINFO_EXTENSION) . " files can't be uploaded to the directory",
+                        ], Response::HTTP_BAD_REQUEST);
+                }
+                foreach ($files as $file)
+                {
+                    $newPathFile = self::str_replace_first($folder,$newPath . basename($nameFolder),$file);
+
+                    DB::table('files')
+                        ->where('path', '=', $file)
+                        ->update(['path' => $newPathFile]);
+
+                    DB::table('links')
+                        ->where('path', '=', $file)
+                        ->update(['path' => $newPathFile]);
+                }
+                foreach ($directories as $dir)
+                {
+                    $newPathDir = self::str_replace_first($folder,$newPath . basename($nameFolder),$dir);
+                    DB::table('files')
+                        ->where('path', '=', $dir)
+                        ->update(['path' => $newPathDir]);
+                }
+
+                File::moveDirectory($this->root . $folder, $this->root . $newPath . basename($nameFolder));
+                DB::table('files')
+                    ->where('path', '=', $folder)
+                    ->update(['file_name' =>  basename($nameFolder) , 'path' => $nameFolder]);
 
                 return response()->json([
                     'status' => 'success'
@@ -328,19 +378,40 @@ class FileController extends Controller
     {
         if ($request->has('folder')) {
             $folder = $request->folder;
-            $newPath = $request->path;
-            $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
-            $newPathFolderStorage = storage_path() . '/app/root/' . $newPath;
-
-            if (self::checkRights($pathFolderStorage,'move')) {
-                if ($newPath == '') {
-                    $nameFolder = self::folderConflictResolution($newPath, basename($folder));
+            $path = $request->path;
+            if (self::checkRights($folder,'move')) {
+                if ($path == '') {
+                    $nameFolder = self::folderConflictResolution($path, basename($folder));
                 }
                 else{
-                    $nameFolder = self::folderConflictResolution($newPath, $newPath . '/' . basename($folder));
+                    $nameFolder = self::folderConflictResolution($path, $path . '/' . basename($folder));
                 }
-                File::copyDirectory($pathFolderStorage, $newPathFolderStorage . '/' . basename($nameFolder));
-                File::copy($pathFolderStorage . '.conf', $newPathFolderStorage . '/' . basename($nameFolder) . '.conf');
+
+                $newPath = $path;
+                if ($newPath != "") $newPath = $newPath . '/';
+                $files = Storage::allFiles($folder);
+                $directories = Storage::allDirectories($folder);
+                foreach ($files as $file)
+                {
+                    if (self::checkExtensions($path,pathinfo($file, PATHINFO_EXTENSION)) == false) {
+                        return response()->json([
+                            'status' => 'warning',
+                        ]);
+                    }
+                }
+                foreach ($files as $file)
+                {
+                    $newPathFile = self::str_replace_first($folder,$newPath . basename($nameFolder),$file);
+                    self::copyMetaData($file,$newPathFile);
+                }
+                foreach ($directories as $dir)
+                {
+                    $newPathDir = self::str_replace_first($folder,$newPath . basename($nameFolder),$dir);
+                    self::copyMetaData($dir,$newPathDir);
+                }
+
+                File::copyDirectory($this->root . $folder, $this->root . $newPath . basename($nameFolder));
+                self::copyMetaData($folder,$path,basename($nameFolder));
 
                 return response()->json([
                     'status' => 'success'
@@ -375,11 +446,11 @@ class FileController extends Controller
             $folder = $request->folder;
             $newName = $request->name;
             $pathRoot = str_replace(basename($folder), '', $folder);
-
             if (substr("$pathRoot", -1) == '/')
             {
                 $pathRoot = substr($pathRoot, 0, -1);
             }
+
             if (self::checkRights($folder,'edit')) {
                 if ($pathRoot == '') {
                     $nameFolder = self::folderConflictResolution($pathRoot, $newName);
@@ -388,17 +459,13 @@ class FileController extends Controller
                     $nameFolder = self::folderConflictResolution($pathRoot,$pathRoot . '/' . $newName);
                 }
 
-                $pathFolderStorage =  storage_path() . '/app/root/' . $folder;
-                $pathNewFolderStorage = str_replace(basename($folder), '', $pathFolderStorage) . basename($nameFolder);
-
+                $pathNewFolderStorage = str_replace(basename($folder), '', $this->root . $folder) . basename($nameFolder);
                 $files = Storage::allFiles($folder);
                 $directories = Storage::allDirectories($folder);
-                var_dump($files);
-                var_dump($directories);
 
                 foreach ($files as $file)
                 {
-                    $newFolderPath = str_replace(storage_path() . '/app/root/', '', $pathNewFolderStorage);
+                    $newFolderPath = str_replace($this->root, '', $pathNewFolderStorage);
                     $newPathFile = self::str_replace_first($folder,$newFolderPath,$file);
                     DB::table('files')
                         ->where('path', '=', $file)
@@ -410,7 +477,7 @@ class FileController extends Controller
                 }
                 foreach ($directories as $dir)
                 {
-                    $newFolderPath = str_replace(storage_path() . '/app/root/', '', $pathNewFolderStorage);
+                    $newFolderPath = str_replace($this->root, '', $pathNewFolderStorage);
                     $newPathDir = self::str_replace_first($folder,$newFolderPath,$dir);
                     DB::table('files')
                         ->where('path', '=', $dir)
@@ -418,7 +485,7 @@ class FileController extends Controller
 
                 }
 
-                File::moveDirectory($pathFolderStorage, $pathNewFolderStorage);
+                File::moveDirectory($this->root . $folder, $pathNewFolderStorage);
 
                 DB::table('files')
                     ->where('path', '=', $folder)
@@ -444,7 +511,7 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function renameFile(Request $request): JsonResponse // *
+    public function renameFile(Request $request): JsonResponse
     {
         if ($request->has('file')) {
 
@@ -452,7 +519,6 @@ class FileController extends Controller
             $file = $request->file;
             $newName = $request->name;
             $path = str_replace(basename($file), '', $file);
-            $pathFileStorage =  storage_path() . '/app/root/' . $file;
             if (substr("$path", -1) == '/')
             {
                 $path = substr($path, 0, -1);
@@ -466,9 +532,9 @@ class FileController extends Controller
                     $nameFile = self::fileConflictResolution($path . '/' . $newName,$path);
                 }
 
-                $nameFile = storage_path() . '/app/root/' . $nameFile;
-                $pathNewFileStorage = str_replace(basename($file), '', $pathFileStorage) . basename($nameFile);
-                File::move($pathFileStorage, $pathNewFileStorage);
+                $nameFile = $this->root . $nameFile;
+                $pathNewFileStorage = str_replace(basename($file), '', $this->root . $file) . basename($nameFile);
+                File::move($this->root . $file, $pathNewFileStorage);
 
                 if ($path != '') $path = $path . '/' ;
                 DB::table('files')
@@ -503,11 +569,34 @@ class FileController extends Controller
         if ($request->has('folder')) {
 
             $pathFolder = $request->folder;
-            $pathFolderStorage =  storage_path() . '/app/root/' . $pathFolder;
-            if (self::checkRights($pathFolderStorage,'edit')) {
+            if (self::checkRights($pathFolder,'edit')) {
 
-                File::deleteDirectory($pathFolderStorage);
-                File::delete($pathFolderStorage . '.conf');
+                $files = Storage::allFiles($pathFolder);
+                $directories = Storage::allDirectories($pathFolder);
+
+                File::deleteDirectory($this->root . $pathFolder);
+
+                DB::table('files')
+                    ->where('path', '=', $pathFolder)
+                    ->delete();
+
+                foreach ($files as $file)
+                {
+                    DB::table('files')
+                        ->where('path', '=', $file)
+                        ->delete();
+
+                    DB::table('links')
+                        ->where('path', '=', $file)
+                        ->delete();
+                }
+                foreach ($directories as $dir)
+                {
+                    DB::table('files')
+                        ->where('path', '=', $dir)
+                        ->delete();
+                }
+
 
                 return response()->json([
                     'status' => 'success'
@@ -528,14 +617,13 @@ class FileController extends Controller
             ], 401);
         }
     }
-    public function deleteFile(Request $request): JsonResponse // *
+    public function deleteFile(Request $request): JsonResponse
     {
         if ($request->has('file')) {
             $path= $request->file;
-            $pathFileStorage =  storage_path() . '/app/root/' . $path;
             if (self::checkRights($path,'edit')) {
 
-                File::delete($pathFileStorage);
+                File::delete($this->root . $path);
 
                 DB::table('files')
                     ->where('path', '=', $path)
@@ -564,30 +652,28 @@ class FileController extends Controller
             ], 401);
         }
     }
-
     public function createFolder(Request $request)
     {
         if ($request->has('folder')) {
-            $pathFolder = $request->folder;
-            $p = substr(strrchr($pathFolder, '/'), 1);
-            $pathRoot = substr($pathFolder, 0, - strlen($p));
 
-            if ($pathRoot == '') {
-                $nameFolder = self::folderConflictResolution($pathRoot, basename($pathFolder));
+            $folder = $request->folder;
+            $path = substr(strrchr($folder, '/'), 1);
+            $parentPath = substr($folder, 0, - strlen($path));
+
+            if ($parentPath == '') {
+                $nameFolder = self::folderConflictResolution($parentPath, basename($folder));
             }
             else{
-                $nameFolder = self::folderConflictResolution($pathRoot,$pathRoot . basename($pathFolder));
+                $nameFolder = self::folderConflictResolution($parentPath,$parentPath . basename($folder));
             }
-            $path = storage_path() . '/app/root/' . $nameFolder;
-
-            File::makeDirectory($path);
+            File::makeDirectory($this->root . $nameFolder);
 
             $user = Auth::user();
             $fileMetadata = new \App\Models\File();
             $fileMetadata->path = $nameFolder;
             $fileMetadata->file_type = 'dir';
             $fileMetadata->file_size = 0;
-            $fileMetadata->file_name = basename($path);
+            $fileMetadata->file_name = basename($nameFolder);
             $fileMetadata->creator = $user->id;
             $fileMetadata->look_groups = [1, 2];
             $fileMetadata->look_users = [$user->id];
@@ -607,36 +693,25 @@ class FileController extends Controller
                 ], 401);
         }
     }
-    public function openFolder(Request $request): JsonResponse //
+    public function openFolder(Request $request): JsonResponse
     {
         if ($request->has('folder')) {
-            $pathFolder = $request->folder;
-            $path = $pathFolder;
-
+            $path = $request->folder;
             $files = Storage::files($path);
             $directories = Storage::directories($path);
 
             foreach ($directories as $key => $dir)
             {
-                $pathFolderStorage =  storage_path() . '/app/root/' . $dir;
-                if (!self::checkRights($pathFolderStorage,'look')) {
+                if (!self::checkRights($dir,'look')) {
                     unset($directories[$key]);
                 }
             }
             foreach ($files as $key => $file)
             {
-                $extension = pathinfo($file, PATHINFO_EXTENSION);
-                if ($extension == 'conf'){
+                if (!self::checkRights($file,'look')) {
                     unset($files[$key]);
                 }
-                else{
-                    $pathFileStorage =  storage_path() . '/app/root/' . $file;
-                    if (!self::checkRights($pathFileStorage,'look')) {
-                        unset($files[$key]);
-                    }
-                }
             }
-
             return response()->json([
                 'status' => 'success',
                 'files' => array_values($files),
