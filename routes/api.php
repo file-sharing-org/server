@@ -43,6 +43,7 @@ Route::controller(FileController::class)->group(function () {
 
         Route::get('files', 'downloadFile');
         Route::get('open-folder', 'openFolder');
+        Route::get('get-size', 'getSizeFiles');
 
         Route::post('permission-delete-users', 'permissionDeleteUsers');
         Route::post('permission-delete-groups', 'permissionDeleteGroups');

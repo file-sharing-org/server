@@ -726,7 +726,59 @@ class FileController extends Controller
             ], 401);
         }
     }
+    public function getSizeFiles(Request $request): JsonResponse
+    {
+        if ($request->has('path')) {
 
+            $path = $request->path;
+            $size = 0;
+            $type = DB::table('files')
+                ->where('path','=',$path)
+                ->select('file_type')
+                ->first();
+
+            if ($type->file_type == 'file')
+            {
+                $size= DB::table('files')
+                    ->where('path','=',$path)
+                    ->select('file_size')
+                    ->first();
+
+                return response()->json([
+                    'size' => $size->file_size
+                ]);
+
+            }
+            else if ($type->file_type == 'dir')
+            {
+                $files = Storage::allFiles($path);
+
+                foreach ($files as $file)
+                {
+                    $size += (float)DB::table('files')
+                        ->where('path','=',$file)
+                        ->select('file_size')
+                        ->first()->file_size;
+                }
+
+                return response()->json([
+                    'size' => $size
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'error'
+            ], 401);
+
+        }
+        else
+        {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Folder wasnt passed'
+            ], 401);
+        }
+    }
     /**
      * ALL FUNCTIONS BELOW EXPECTS,
      * 1 - LOGGED IN USER == FILE_CREATOR, USER IS ADMIN OR MODERATOR
@@ -784,7 +836,6 @@ class FileController extends Controller
 
         return response('');
     }
-
     public function permissionDeleteGroups(Request $request)
     {
         $path = $request->path;
@@ -846,7 +897,6 @@ class FileController extends Controller
         }
         return response('');
     }
-
     public function permissionAddUsers(Request $request)
     {
         $path = $request->path;
@@ -880,7 +930,6 @@ class FileController extends Controller
         }
         return response('');
     }
-
     public function permissionAddGroups(Request $request)
     {
         $path = $request->path;
@@ -914,7 +963,6 @@ class FileController extends Controller
         }
         return response('');
     }
-
     public function extensionsAdd(Request $request)
     {
         $dir = $request->folder;
@@ -938,7 +986,6 @@ class FileController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
     }
-
     public function extensionsDelete(Request $request)
     {
         $dir = $request->folder;
